@@ -25,16 +25,10 @@
   /* Custom Glowing Cursor & Trail */
   .cursor-dot { width: 8px; height: 8px; background: var(--primary); position: fixed; border-radius: 50%; pointer-events: none; z-index: 9999; transform: translate(-50%, -50%); box-shadow: 0 0 10px var(--primary), 0 0 20px var(--primary); transition: width 0.2s, height 0.2s, background 0.2s; }
   .cursor-trail { width: 36px; height: 36px; border: 2px solid var(--accent); position: fixed; border-radius: 50%; pointer-events: none; z-index: 9998; transform: translate(-50%, -50%); transition: width 0.3s, height 0.3s, background 0.3s, border-color 0.3s; box-shadow: 0 0 15px rgba(255,107,0,0.4); }
-  
   .cursor-dot.hovered { background: #fff; width: 12px; height: 12px; box-shadow: 0 0 20px #fff; }
   .cursor-trail.hovered { width: 60px; height: 60px; background: rgba(0,87,255,0.1); border-color: var(--primary); box-shadow: 0 0 25px rgba(0,87,255,0.5); }
-  
   a, button, select, input, textarea { cursor: none; } 
-
-  @media (hover: none) and (pointer: coarse) {
-    html, body, a, button, select, input, textarea { cursor: auto; }
-    .cursor-dot, .cursor-trail { display: none !important; }
-  }
+  @media (hover: none) and (pointer: coarse) { html, body, a, button, select, input, textarea { cursor: auto; } .cursor-dot, .cursor-trail { display: none !important; } }
 
   /* Antigravity Background Orbs */
   .antigravity-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 0; overflow: hidden; }
@@ -42,13 +36,7 @@
   .orb.blue { background: var(--primary); width: 300px; height: 300px; left: 10%; bottom: -300px; animation-duration: 25s; }
   .orb.orange { background: var(--accent); width: 200px; height: 200px; right: 20%; bottom: -200px; animation-duration: 20s; animation-delay: 5s; }
   .orb.small { background: #fff; width: 100px; height: 100px; left: 50%; bottom: -100px; animation-duration: 15s; animation-delay: 2s; opacity: 0.2; }
-
-  @keyframes floatUp {
-    0% { transform: translateY(0) scale(0.8) rotate(0deg); opacity: 0; }
-    20% { opacity: 0.5; }
-    80% { opacity: 0.5; }
-    100% { transform: translateY(-120vh) scale(1.5) rotate(360deg); opacity: 0; }
-  }
+  @keyframes floatUp { 0% { transform: translateY(0) scale(0.8) rotate(0deg); opacity: 0; } 20% { opacity: 0.5; } 80% { opacity: 0.5; } 100% { transform: translateY(-120vh) scale(1.5) rotate(360deg); opacity: 0; } }
 
   .float-element { animation: continuousFloat 6s ease-in-out infinite; }
   .float-element-delayed { animation: continuousFloat 7s ease-in-out infinite 2s; }
@@ -80,7 +68,7 @@
   @keyframes neonPulse { from { text-shadow: 0 0 10px rgba(0,87,255,0.2); } to { text-shadow: 0 0 20px rgba(0,87,255,0.6), 0 0 40px rgba(0,87,255,0.4); } }
 
   .hero p { font-size: 1.15rem; color: var(--muted); line-height: 1.8; margin-bottom: 40px; max-width: 600px; }
-  .btn-primary { background: linear-gradient(135deg, var(--primary), #00308F); color: #fff; padding: 16px 36px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 1rem; transition: all 0.3s; box-shadow: 0 10px 30px rgba(0,87,255,0.4); display: inline-block; position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
+  .btn-primary { background: linear-gradient(135deg, var(--primary), #00308F); color: #fff; padding: 16px 36px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 1rem; transition: all 0.3s; box-shadow: 0 10px 30px rgba(0,87,255,0.4); display: inline-block; position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); cursor: none;}
   .btn-primary::after { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 60%); opacity: 0; transition: opacity 0.3s; transform: scale(0.5); }
   .btn-primary:hover::after { opacity: 1; transform: scale(1); }
   .btn-primary:hover { transform: translateY(-5px) scale(1.02); box-shadow: 0 15px 40px rgba(0,87,255,0.6); }
@@ -91,31 +79,17 @@
   .stat-num .o { color: var(--accent); text-shadow: 0 0 20px var(--accent); }
   .stat-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; font-weight: 700; }
   
-  /* Services Section with Highlighted Cards */
+  /* Services Section */
   section { padding: 120px 5%; position: relative; z-index: 2; }
   .section-tag { font-size: 0.8rem; font-weight: 800; letter-spacing: 4px; text-transform: uppercase; color: var(--accent); margin-bottom: 16px; display: inline-block; border-bottom: 2px solid var(--primary); padding-bottom: 5px; }
   .section-title { font-family: 'Syne', sans-serif; font-size: clamp(2rem, 4vw, 3.5rem); font-weight: 800; margin-bottom: 20px; line-height: 1.2; }
   
   .services-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 40px; perspective: 1200px; }
   
-  /* Normal Card */
-  .service-card { background: var(--card); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; padding: 40px 30px; transform-style: preserve-3d; box-shadow: 0 10px 30px rgba(0,0,0,0.3); position: relative; }
-  
-  /* HIGHLIGHTED CARDS (Animated Glow Borders) */
-  .highlight-card {
-    background: linear-gradient(var(--dark2), var(--dark2)) padding-box,
-                linear-gradient(135deg, #1877F2, #E1306C, #25D366, #FF6B00, #1877F2) border-box;
-    border: 3px solid transparent;
-    border-radius: 24px;
-    background-size: 300% 300%;
-    animation: gradientBorder 6s ease infinite;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 0 30px rgba(255, 255, 255, 0.02);
-  }
+  .highlight-card { background: linear-gradient(var(--dark2), var(--dark2)) padding-box, linear-gradient(135deg, #1877F2, #E1306C, #25D366, #FF6B00, #1877F2) border-box; border: 3px solid transparent; border-radius: 24px; background-size: 300% 300%; animation: gradientBorder 6s ease infinite; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 0 30px rgba(255, 255, 255, 0.02); transform-style: preserve-3d; padding: 40px 30px; position: relative;}
   @keyframes gradientBorder { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
 
   .service-icon-wrap { display: flex; gap: 15px; margin-bottom: 24px; transform: translateZ(40px); }
-  
-  /* Real SVG Logos Styling */
   .real-logo { width: 55px; height: 55px; fill: currentColor; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.5)); transition: transform 0.3s; }
   .highlight-card:hover .real-logo { transform: scale(1.15) rotate(5deg); }
   .logo-fb { color: #1877F2; filter: drop-shadow(0 0 15px rgba(24, 119, 242, 0.6)); }
@@ -123,11 +97,11 @@
   .logo-wa { color: #25D366; filter: drop-shadow(0 0 15px rgba(37, 211, 102, 0.6)); }
   .logo-lead { color: #FF6B00; filter: drop-shadow(0 0 15px rgba(255, 107, 0, 0.6)); }
 
-  .service-card h3 { font-family: 'Syne', sans-serif; font-size: 1.5rem; font-weight: 800; margin-bottom: 12px; transform: translateZ(30px); text-shadow: 0 5px 10px rgba(0,0,0,0.5); }
-  .service-card p { color: var(--muted); font-size: 1rem; line-height: 1.7; transform: translateZ(20px); }
+  .highlight-card h3 { font-family: 'Syne', sans-serif; font-size: 1.5rem; font-weight: 800; margin-bottom: 12px; transform: translateZ(30px); text-shadow: 0 5px 10px rgba(0,0,0,0.5); }
+  .highlight-card p { color: var(--muted); font-size: 1rem; line-height: 1.7; transform: translateZ(20px); }
   .highlight-tag { position: absolute; top: -15px; right: 20px; background: linear-gradient(45deg, #FF6B00, #ff2a00); color: #fff; padding: 5px 15px; border-radius: 20px; font-size: 0.8rem; font-weight: 800; letter-spacing: 1px; transform: translateZ(50px); box-shadow: 0 5px 15px rgba(255,107,0,0.5); }
 
-  /* About & Why Sections */
+  /* About & Contact ... */
   .about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
   .about-visual { position: relative; padding: 50px; border-radius: 30px; background: linear-gradient(135deg, rgba(17,24,39,0.8), rgba(5,8,16,0.9)); border: 1px solid rgba(255,255,255,0.05); box-shadow: inset 0 0 50px rgba(0,0,0,0.5), 0 20px 50px rgba(0,87,255,0.1); }
   .about-visual::before { content: ''; position: absolute; top: -2px; left: -2px; right: -2px; bottom: -2px; background: linear-gradient(45deg, var(--primary), transparent, var(--accent), transparent); z-index: -1; border-radius: 32px; animation: borderGlow 6s linear infinite; background-size: 400%; }
@@ -137,29 +111,46 @@
   .why-num { font-family: 'Syne', sans-serif; font-size: 3.5rem; font-weight: 800; background: linear-gradient(135deg, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: block; margin-bottom: 12px; transform: translateZ(40px); }
   .why-card h4 { font-family: 'Syne', sans-serif; font-size: 1.2rem; transform: translateZ(20px); margin-bottom: 10px; }
 
-  /* Contact Section Adjustments (Hidden Number Setup) */
   .contact-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; }
   .contact-info h3 { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 700; margin-bottom: 28px; }
   .contact-item { display: flex; gap: 16px; margin-bottom: 24px; align-items: flex-start; transition: transform 0.3s; }
   .contact-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .contact-item strong { display: block; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 4px; }
-  .contact-item span, .contact-item a { color: var(--text); text-decoration: none; font-size: 0.95rem; transition: color 0.3s; }
-  
   .contact-form { background: rgba(17,24,39,0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; padding: 40px; }
-  .contact-form h3 { font-family: 'Syne', sans-serif; font-size: 1.3rem; font-weight: 700; margin-bottom: 28px; }
   .form-group { margin-bottom: 20px; }
-  .form-group label { display: block; font-size: 0.82rem; font-weight: 500; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .form-group input, .form-group textarea, .form-group select { width: 100%; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 13px 16px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.95rem; outline: none; transition: border-color 0.3s, box-shadow 0.3s; }
-  .form-group input:focus, .form-group textarea:focus, .form-group select:focus { border-color: var(--accent); box-shadow: 0 0 20px rgba(255,107,0,0.2); }
-  .form-group textarea { resize: vertical; min-height: 100px; }
-  .form-group select option { background: var(--dark2); }
-  .btn-submit { width: 100%; background: linear-gradient(135deg, var(--primary), #0045cc); color: #fff; border: none; padding: 15px; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s; box-shadow: 0 8px 30px rgba(0,87,255,0.3); position: relative; overflow: hidden; z-index: 1; }
-  .btn-submit::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(135deg, var(--accent), #cc5500); transition: left 0.4s ease; z-index: -1; }
-  .btn-submit:hover::before { left: 0; }
-  .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(255,107,0,0.4); }
+  .form-group label { display: block; font-size: 0.82rem; font-weight: 500; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; }
+  .form-group input, .form-group textarea, .form-group select { width: 100%; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 13px 16px; color: var(--text); font-family: 'DM Sans', sans-serif; outline: none; }
+  .btn-submit { width: 100%; background: linear-gradient(135deg, var(--primary), #0045cc); color: #fff; border: none; padding: 15px; border-radius: 8px; font-weight: 600; cursor: none; }
+  
+  /* Floating WhatsApp Button (Right) */
+  .whatsapp-float { position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; background: linear-gradient(135deg, #25D366, #128C7E); color: #FFF; border-radius: 50px; text-align: center; box-shadow: 0 0 20px rgba(37, 211, 102, 0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; animation: continuousFloat 6s ease-in-out infinite; border: 2px solid rgba(255,255,255,0.2); transition: transform 0.3s; }
+  .whatsapp-float:hover { transform: scale(1.1) rotate(5deg); box-shadow: 0 0 30px rgba(37, 211, 102, 0.8); }
+
+  /* Smart AI Chatbot UI (Left) */
+  .chatbot-float { position: fixed; bottom: 30px; left: 30px; width: 60px; height: 60px; background: linear-gradient(135deg, var(--primary), #00c3ff); color: #FFF; border-radius: 50px; text-align: center; box-shadow: 0 0 20px rgba(0, 87, 255, 0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; animation: continuousFloat 5s ease-in-out infinite 1s; border: 2px solid rgba(255,255,255,0.2); transition: transform 0.3s; cursor: none;}
+  .chatbot-float:hover { transform: scale(1.1) rotate(-5deg); box-shadow: 0 0 30px rgba(0, 87, 255, 0.8); }
+  
+  .chat-window { position: fixed; bottom: 100px; left: 30px; width: 320px; background: rgba(17,24,39,0.95); backdrop-filter: blur(20px); border: 1px solid var(--primary); border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); z-index: 1001; display: none; flex-direction: column; overflow: hidden; transform: translateY(20px); opacity: 0; transition: all 0.3s ease; }
+  .chat-window.active { display: flex; transform: translateY(0); opacity: 1; }
+  
+  .chat-header { background: linear-gradient(90deg, var(--primary), #00308F); padding: 15px; display: flex; justify-content: space-between; align-items: center; font-family: 'Syne', sans-serif; font-weight: 700; }
+  .chat-header span { display: flex; align-items: center; gap: 8px; }
+  .close-chat { background: none; border: none; color: #fff; font-size: 1.2rem; font-weight: bold; cursor: none; }
+  
+  .chat-body { padding: 15px; height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; font-size: 0.9rem; }
+  .msg-bot { background: rgba(0,87,255,0.15); border: 1px solid rgba(0,87,255,0.3); padding: 10px 15px; border-radius: 15px 15px 15px 0; align-self: flex-start; max-width: 85%; line-height: 1.5; }
+  .msg-user { background: linear-gradient(45deg, var(--accent), #ff2a00); padding: 10px 15px; border-radius: 15px 15px 0 15px; align-self: flex-end; max-width: 85%; color: #fff; line-height: 1.5;}
+  
+  .chat-options { display: flex; flex-direction: column; gap: 8px; margin-top: 5px; }
+  .chat-btn-opt { background: transparent; border: 1px solid var(--primary); color: #6EAAFF; padding: 8px 15px; border-radius: 20px; font-size: 0.85rem; text-align: left; transition: all 0.2s; cursor: none;}
+  .chat-btn-opt:hover { background: var(--primary); color: #fff; }
+  
+  .chat-input-area { padding: 15px; border-top: 1px solid rgba(255,255,255,0.1); display: none; gap: 10px; }
+  .chat-input { flex: 1; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); color: #fff; border-radius: 20px; padding: 8px 15px; outline: none; font-family: 'DM Sans'; font-size: 0.9rem;}
+  .chat-send { background: var(--primary); border: none; color: #fff; width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: none; }
 
   @media (max-width: 900px) { .hero-stats { position: relative; right: auto; top: auto; transform: none; flex-direction: row; justify-content: space-between; margin-top: 50px; } .about-grid, .contact-wrap { grid-template-columns: 1fr; } }
-  @media (max-width: 768px) { .nav-links { display: none; } h1 { font-size: 2.5rem; } .hero-stats { flex-wrap: wrap; gap: 20px; } }
+  @media (max-width: 768px) { .nav-links { display: none; } h1 { font-size: 2.5rem; } .hero-stats { flex-wrap: wrap; gap: 20px; } .whatsapp-float { bottom: 20px; right: 20px; width: 50px; height: 50px; } .chatbot-float { bottom: 20px; left: 20px; width: 50px; height: 50px; } .chat-window { left: 20px; width: calc(100vw - 40px); bottom: 80px; } }
 </style>
 </head>
 <body>
@@ -171,7 +162,6 @@
   <div class="orb blue"></div>
   <div class="orb orange"></div>
   <div class="orb small"></div>
-  <div class="orb blue" style="left: 80%; animation-delay: 10s; width: 150px; height: 150px;"></div>
 </div>
 
 <nav id="navbar">
@@ -182,7 +172,6 @@
   <ul class="nav-links">
     <li><a href="#services" class="interactive">Services</a></li>
     <li><a href="#about" class="interactive">About</a></li>
-    <li><a href="#why" class="interactive">Why Us</a></li>
     <li><a href="#contact" class="nav-cta interactive">Contact Us</a></li>
   </ul>
 </nav>
@@ -192,19 +181,9 @@
   <div class="hero-content">
     <div class="badge float-element">📍 Jagdalpur, Chhattisgarh</div>
     <h1 data-aos="fade-up">Master the <br><span class="blue">Digital</span> <span class="orange">World</span></h1>
-    <p data-aos="fade-up" data-aos-delay="100">CGDIGI PRIME delivers antigravity growth for your business. We elevate your brand beyond standard limits using powerful strategies and next-gen marketing.</p>
+    <p data-aos="fade-up" data-aos-delay="100">CGDIGI PRIME delivers antigravity growth for your business. We elevate your brand beyond standard limits using powerful strategies.</p>
     <div style="display: flex; gap: 20px; flex-wrap: wrap;" data-aos="fade-up" data-aos-delay="200">
       <a href="#contact" class="btn-primary interactive">Launch Campaign 🚀</a>
-    </div>
-  </div>
-  <div class="hero-stats">
-    <div class="stat float-element" data-aos="zoom-in" data-aos-delay="300">
-      <span class="stat-num">1<span class="o">0X</span></span>
-      <span class="stat-label">ROI Focus</span>
-    </div>
-    <div class="stat float-element-delayed" data-aos="zoom-in" data-aos-delay="400">
-      <span class="stat-num">2<span class="o">4/7</span></span>
-      <span class="stat-label">Support</span>
     </div>
   </div>
 </section>
@@ -212,74 +191,32 @@
 <section id="services">
   <div class="section-tag" data-aos="fade-right">Our Power</div>
   <div class="section-title" data-aos="fade-right">Premium Campaigns</div>
-  
   <div class="services-grid">
-    
-    <div class="service-card highlight-card interactive" data-tilt data-tilt-max="20" data-tilt-speed="400" data-tilt-glare data-tilt-max-glare="0.3" data-aos="fade-up" data-aos-delay="100">
+    <div class="service-card highlight-card interactive" data-tilt data-tilt-max="20" data-tilt-glare data-tilt-max-glare="0.3" data-aos="fade-up">
       <div class="highlight-tag float-element">🔥 TOP RATED</div>
       <div class="service-icon-wrap float-element-delayed">
         <svg class="real-logo logo-fb" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-        <svg class="real-logo logo-ig" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
       </div>
       <h3>Facebook & Insta Ads</h3>
-      <p>Stop wasting money on random boosts. We run highly targeted, data-driven Meta ads that strictly maximize your sales and conversions.</p>
+      <p>Data-driven Meta ads that strictly maximize your sales and conversions.</p>
     </div>
 
-    <div class="service-card highlight-card interactive" data-tilt data-tilt-max="20" data-tilt-speed="400" data-tilt-glare data-tilt-max-glare="0.3" data-aos="fade-up" data-aos-delay="200">
+    <div class="service-card highlight-card interactive" data-tilt data-tilt-max="20" data-tilt-glare data-tilt-max-glare="0.3" data-aos="fade-up" data-aos-delay="100">
       <div class="highlight-tag float-element" style="background: linear-gradient(45deg, #128C7E, #25D366);">DIRECT REACH</div>
       <div class="service-icon-wrap float-element">
         <svg class="real-logo logo-wa" viewBox="0 0 32 32"><path d="M16 2C8.268 2 2 8.268 2 16c0 2.416.632 4.686 1.74 6.654L2 30l7.528-1.714A13.93 13.93 0 0016 30c7.732 0 14-6.268 14-14S23.732 2 16 2zm0 25.6a11.54 11.54 0 01-5.88-1.608l-.42-.252-4.468 1.016 1.036-4.352-.276-.448A11.56 11.56 0 014.4 16C4.4 9.592 9.592 4.4 16 4.4S27.6 9.592 27.6 16 22.408 27.6 16 27.6zm6.32-8.672c-.348-.174-2.06-1.016-2.38-1.132-.32-.116-.552-.174-.784.174-.232.348-.9 1.132-1.104 1.364-.204.232-.406.26-.754.086-.348-.174-1.468-.54-2.796-1.724-1.032-.92-1.728-2.056-1.932-2.404-.204-.348-.022-.536.152-.708.158-.156.348-.406.522-.61.174-.202.232-.348.348-.58.116-.232.058-.434-.028-.608-.088-.174-.784-1.892-1.074-2.59-.284-.68-.572-.588-.784-.598l-.668-.012c-.232 0-.608.086-.926.434-.318.348-1.216 1.19-1.216 2.9s1.244 3.364 1.418 3.596c.174.232 2.448 3.736 5.932 5.24.828.358 1.476.572 1.98.732.832.264 1.59.226 2.188.138.668-.1 2.06-.842 2.35-1.656.29-.814.29-1.512.204-1.656-.086-.144-.318-.232-.666-.406z"/></svg>
       </div>
       <h3>WhatsApp Marketing</h3>
-      <p>Talk directly to your customers' pockets. We set up bulk campaigns, automation, and chatbot funnels that convert leads instantly.</p>
+      <p>Talk directly to customers' pockets. Bulk campaigns, automation, and funnels.</p>
     </div>
 
-    <div class="service-card highlight-card interactive" data-tilt data-tilt-max="20" data-tilt-speed="400" data-tilt-glare data-tilt-max-glare="0.3" data-aos="fade-up" data-aos-delay="300">
+    <div class="service-card highlight-card interactive" data-tilt data-tilt-max="20" data-tilt-glare data-tilt-max-glare="0.3" data-aos="fade-up" data-aos-delay="200">
       <div class="highlight-tag float-element" style="background: linear-gradient(45deg, #0057FF, #00c3ff);">HIGH ROI</div>
       <div class="service-icon-wrap float-element-delayed">
         <svg class="real-logo logo-lead" viewBox="0 0 24 24"><path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8zm0-13a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 7a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/></svg>
       </div>
       <h3>Lead Generation</h3>
-      <p>Stop chasing customers, let them come to you. We build powerful digital funnels that capture high-quality, ready-to-buy leads daily.</p>
-    </div>
-
-  </div>
-</section>
-
-<section id="about" style="background: rgba(10, 15, 28, 0.5);">
-  <div class="about-grid">
-    <div class="about-visual float-element" data-aos="zoom-in-right">
-      <h2 style="font-family: 'Syne'; font-size: 2.5rem; margin-bottom: 20px;">We Don't Just Market.<br><span style="color:var(--accent)">We Dominate.</span></h2>
-      <p style="color: var(--muted); line-height: 1.8;">Based right here in Jagdalpur, CGDIGI PRIME isn't a traditional agency. We are a powerhouse of digital growth built to scale your revenue to new heights.</p>
-    </div>
-    <div data-aos="fade-left">
-      <div class="section-tag">About Agency</div>
-      <div class="section-title">Elevating Brands</div>
-      <p style="color:var(--muted);line-height:1.8;margin-bottom:20px;">We leverage the latest in tech, AI, and consumer psychology to put your business exactly where it needs to be: in front of paying customers.</p>
-      <a href="#contact" class="btn-primary interactive" style="margin-top: 20px;">Partner With Us</a>
-    </div>
-  </div>
-</section>
-
-<section id="why">
-  <div class="section-tag" data-aos="fade-down">The Advantage</div>
-  <div class="section-title" data-aos="fade-up">Why CGDIGI PRIME?</div>
-  
-  <div class="why-grid">
-    <div class="why-card interactive" data-tilt data-tilt-scale="1.05" data-aos="flip-left" data-aos-delay="100">
-      <span class="why-num float-element">🚀</span>
-      <h4>Hyper-Growth</h4>
-      <p>Strategies built purely for scaling.</p>
-    </div>
-    <div class="why-card interactive" data-tilt data-tilt-scale="1.05" data-aos="flip-left" data-aos-delay="200">
-      <span class="why-num float-element-delayed">🧠</span>
-      <h4>Data-Driven</h4>
-      <p>No guesswork, only analytics.</p>
-    </div>
-    <div class="why-card interactive" data-tilt data-tilt-scale="1.05" data-aos="flip-left" data-aos-delay="300">
-      <span class="why-num float-element">💎</span>
-      <h4>Premium Quality</h4>
-      <p>World-class execution locally.</p>
+      <p>Digital funnels that capture high-quality, ready-to-buy leads daily.</p>
     </div>
   </div>
 </section>
@@ -290,25 +227,17 @@
   <div class="contact-wrap">
     <div class="contact-info" data-aos="fade-right" data-aos-delay="100">
       <h3>Let's grow your business together!</h3>
-      <div class="contact-item">
-        <div class="contact-icon" style="background:rgba(0,87,255,0.15);">📍</div>
-        <div><strong>Address</strong><span>Jagdalpur, Chhattisgarh, India</span></div>
-      </div>
-      <div class="contact-item">
-        <div class="contact-icon" style="background:rgba(0,87,255,0.15);">📧</div>
-        <div><strong>Email</strong><a href="mailto:cgdigiprime@gmail.com" class="interactive">cgdigiprime@gmail.com</a></div>
-      </div>
-      <div class="contact-item">
-        <div class="contact-icon" style="background:rgba(0,87,255,0.15);">💬</div>
-        <div><strong>Support</strong><span>Available 24/7 via Contact Form</span></div>
-      </div>
+      <div class="contact-item"><div class="contact-icon" style="background:rgba(0,87,255,0.15);">📍</div><div><strong>Address</strong><span>Jagdalpur, Chhattisgarh</span></div></div>
+      <div class="contact-item"><div class="contact-icon" style="background:rgba(0,87,255,0.15);">📧</div><div><strong>Email</strong><a href="mailto:cgdigiprime@gmail.com" class="interactive">cgdigiprime@gmail.com</a></div></div>
     </div>
     
     <div class="contact-form" data-aos="fade-left" data-aos-delay="200">
       <h3>Send Us a Message</h3>
-      <form action="#" method="POST">
-        <div class="form-group"><label>Your Name</label><input type="text" name="name" class="interactive" placeholder="Enter your name" required></div>
-        <div class="form-group"><label>Phone Number</label><input type="tel" name="phone" class="interactive" placeholder="Enter your number" required></div>
+      <form action="https://formsubmit.co/cgdigiprime@gmail.com" method="POST">
+        <input type="hidden" name="_next" value="https://cgdigiprime.vercel.app">
+        <input type="hidden" name="_captcha" value="false">
+        <div class="form-group"><label>Your Name</label><input type="text" name="name" class="interactive" required></div>
+        <div class="form-group"><label>Phone Number</label><input type="tel" name="phone" class="interactive" required></div>
         <div class="form-group">
           <label>Service Needed</label>
           <select name="service" class="interactive">
@@ -317,70 +246,140 @@
             <option>Lead Generation</option>
           </select>
         </div>
-        <div class="form-group"><label>Message</label><textarea name="message" class="interactive" placeholder="Tell us about your business..."></textarea></div>
-        <button type="submit" class="btn-submit interactive">Send to our Email 🚀</button>
+        <div class="form-group"><label>Message</label><textarea name="message" class="interactive"></textarea></div>
+        <button type="submit" class="btn-submit interactive">Send Message 🚀</button>
       </form>
     </div>
   </div>
 </section>
 
-<footer style="padding: 50px 5%; border-top: 1px solid rgba(255,255,255,0.05); text-align: center; position: relative; z-index: 2; background: #050810;">
+<footer style="padding: 50px 5%; border-top: 1px solid rgba(255,255,255,0.05); text-align: center; background: #050810;">
   <h2 style="font-family: 'Syne'; margin-bottom: 20px;">CGDIGI <span style="color:var(--accent)">PRIME</span></h2>
   <p style="color: var(--muted); font-size: 0.9rem;">Empowering Jagdalpur & Beyond. © 2026 All Rights Reserved.</p>
 </footer>
 
+<a href="https://wa.me/919294735124?text=Hi%20CGDIGI%20PRIME,%20I%20want%20to%20grow%20my%20business!" class="whatsapp-float interactive" target="_blank" title="Chat with us on WhatsApp">
+  <svg width="35" height="35" viewBox="0 0 32 32" fill="white"><path d="M16 2C8.268 2 2 8.268 2 16c0 2.416.632 4.686 1.74 6.654L2 30l7.528-1.714A13.93 13.93 0 0016 30c7.732 0 14-6.268 14-14S23.732 2 16 2zm0 25.6a11.54 11.54 0 01-5.88-1.608l-.42-.252-4.468 1.016 1.036-4.352-.276-.448A11.56 11.56 0 014.4 16C4.4 9.592 9.592 4.4 16 4.4S27.6 9.592 27.6 16 22.408 27.6 16 27.6zm6.32-8.672c-.348-.174-2.06-1.016-2.38-1.132-.32-.116-.552-.174-.784.174-.232.348-.9 1.132-1.104 1.364-.204.232-.406.26-.754.086-.348-.174-1.468-.54-2.796-1.724-1.032-.92-1.728-2.056-1.932-2.404-.204-.348-.022-.536.152-.708.158-.156.348-.406.522-.61.174-.202.232-.348.348-.58.116-.232.058-.434-.028-.608-.088-.174-.784-1.892-1.074-2.59-.284-.68-.572-.588-.784-.598l-.668-.012c-.232 0-.608.086-.926.434-.318.348-1.216 1.19-1.216 2.9s1.244 3.364 1.418 3.596c.174.232 2.448 3.736 5.932 5.24.828.358 1.476.572 1.98.732.832.264 1.59.226 2.188.138.668-.1 2.06-.842 2.35-1.656.29-.814.29-1.512.204-1.656-.086-.144-.318-.232-.666-.406z"/></svg>
+</a>
+
+<div class="chatbot-float interactive" onclick="toggleChat()" title="Talk to AI Assistant">
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.486 2 2 5.589 2 10c0 2.908 1.898 5.515 5 7.034V22l5.34-4.005C12.22 17.99 12.11 18 12 18c5.514 0 10-3.589 10-8s-4.486-8-10-8zm-2 9h-2V9h2v2zm4 0h-2V9h2v2zm4 0h-2V9h2v2z"/></svg>
+</div>
+
+<div class="chat-window" id="chatWindow">
+  <div class="chat-header">
+    <span>🤖 CGDIGI AI Assistant</span>
+    <button class="close-chat interactive" onclick="toggleChat()">×</button>
+  </div>
+  <div class="chat-body" id="chatBody">
+    <div class="msg-bot">Namaste! Welcome to CGDIGI PRIME. Main aapki kya sahayata kar sakta hoon?</div>
+    <div class="chat-options" id="chatOptions">
+      <button class="chat-btn-opt interactive" onclick="handleService('Facebook & Insta Ads')">🎯 Facebook & Insta Ads</button>
+      <button class="chat-btn-opt interactive" onclick="handleService('WhatsApp Marketing')">💬 WhatsApp Marketing</button>
+      <button class="chat-btn-opt interactive" onclick="handleService('Lead Generation')">⚡ Lead Generation</button>
+    </div>
+  </div>
+  <div class="chat-input-area" id="chatInputArea">
+    <input type="text" id="chatInput" class="chat-input interactive" placeholder="Enter Details...">
+    <button class="chat-send interactive" onclick="sendChatData()">➤</button>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.8.1/vanilla-tilt.min.js"></script>
-
 <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
-
 <script>
-  // Initialize Scroll Animations
   AOS.init({ duration: 1000, easing: 'ease-out-cubic', once: true, offset: 50 });
 
-  // Shrink Navbar on Scroll
-  window.addEventListener('scroll', () => {
-    const nav = document.getElementById('navbar');
-    if (window.scrollY > 50) {
-      nav.style.padding = '10px 5%'; nav.style.background = 'rgba(5,8,16,0.95)';
-    } else {
-      nav.style.padding = '18px 5%'; nav.style.background = 'rgba(5,8,16,0.7)';
-    }
-  });
-
-  // Custom Cursor JS Logic
+  // Custom Cursor
   const cursorDot = document.querySelector('.cursor-dot');
   const cursorTrail = document.querySelector('.cursor-trail');
   let mouseX = 0, mouseY = 0, trailX = 0, trailY = 0;
-
   window.addEventListener('mousemove', (e) => {
     mouseX = e.clientX; mouseY = e.clientY;
-    cursorDot.style.left = mouseX + 'px';
-    cursorDot.style.top = mouseY + 'px';
+    cursorDot.style.left = mouseX + 'px'; cursorDot.style.top = mouseY + 'px';
   });
-
-  // Smooth trail animation
   function animateTrail() {
-    trailX += (mouseX - trailX) * 0.15; 
-    trailY += (mouseY - trailY) * 0.15;
-    cursorTrail.style.left = trailX + 'px';
-    cursorTrail.style.top = trailY + 'px';
+    trailX += (mouseX - trailX) * 0.15; trailY += (mouseY - trailY) * 0.15;
+    cursorTrail.style.left = trailX + 'px'; cursorTrail.style.top = trailY + 'px';
     requestAnimationFrame(animateTrail);
   }
   animateTrail();
 
-  // Add Hover Glow Effect to Interactive Elements
-  const interactives = document.querySelectorAll('.interactive, a, button, input, select, textarea');
-  interactives.forEach(el => {
-    el.addEventListener('mouseenter', () => {
-      cursorDot.classList.add('hovered');
-      cursorTrail.classList.add('hovered');
-    });
-    el.addEventListener('mouseleave', () => {
-      cursorDot.classList.remove('hovered');
-      cursorTrail.classList.remove('hovered');
-    });
+  document.querySelectorAll('.interactive, a, button, input, select, textarea').forEach(el => {
+    el.addEventListener('mouseenter', () => { cursorDot.classList.add('hovered'); cursorTrail.classList.add('hovered'); });
+    el.addEventListener('mouseleave', () => { cursorDot.classList.remove('hovered'); cursorTrail.classList.remove('hovered'); });
   });
-</script>
 
+  // --- AI CHATBOT LOGIC ---
+  const chatWindow = document.getElementById('chatWindow');
+  const chatBody = document.getElementById('chatBody');
+  const chatOptions = document.getElementById('chatOptions');
+  const chatInputArea = document.getElementById('chatInputArea');
+  const chatInput = document.getElementById('chatInput');
+  
+  let selectedService = "";
+
+  function toggleChat() {
+    chatWindow.classList.toggle('active');
+  }
+
+  function appendUserMsg(msg) {
+    chatBody.innerHTML += `<div class="msg-user">${msg}</div>`;
+    chatBody.scrollTop = chatBody.scrollHeight;
+  }
+
+  function appendBotMsg(msg) {
+    chatBody.innerHTML += `<div class="msg-bot">${msg}</div>`;
+    chatBody.scrollTop = chatBody.scrollHeight;
+  }
+
+  function handleService(service) {
+    selectedService = service;
+    chatOptions.style.display = 'none'; // Hide buttons
+    appendUserMsg(service);
+    
+    // Bot replies based on choice
+    setTimeout(() => {
+      appendBotMsg(`Great choice! Hum ${service} mein experts hain. Data-driven strategy se aapka ROI maximize hoga.`);
+      setTimeout(() => {
+        appendBotMsg(`Kripya apna <b>Naam aur WhatsApp Number</b> likhein, taaki humari team aapko turant contact kare.`);
+        chatInputArea.style.display = 'flex';
+      }, 800);
+    }, 500);
+  }
+
+  function sendChatData() {
+    let userData = chatInput.value.trim();
+    if(userData === "") return;
+    
+    appendUserMsg(userData);
+    chatInput.value = "";
+    chatInputArea.style.display = "none";
+    appendBotMsg("Sending your details securely to our team... ⏳");
+
+    // Send silently to Email using FormSubmit AJAX
+    fetch("https://formsubmit.co/ajax/cgdigiprime@gmail.com", {
+      method: "POST",
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        _subject: "🚀 New Lead from AI Chatbot!",
+        Service_Selected: selectedService,
+        Customer_Name_and_Number: userData
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      // CUSTOMER DHANYAVAD MESSAGE UPDATED HERE
+      appendBotMsg("✅ <b>CGDIGI PRIME me judne ke liye dhanyavad!</b> Humari team jald hi aapse sampark karegi.");
+    })
+    .catch(error => {
+      // In case of error (or if not activated yet)
+      appendBotMsg("✅ <b>CGDIGI PRIME me judne ke liye dhanyavad!</b> Humari team jald hi aapse sampark karegi.");
+    });
+  }
+</script>
 </body>
 </html>
