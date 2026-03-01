@@ -118,7 +118,31 @@
   .whatsapp-float:hover { transform: scale(1.1) rotate(5deg); box-shadow: 0 0 30px rgba(37, 211, 102, 0.8); }
   @keyframes pulseGlow { 0% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.7); } 70% { box-shadow: 0 0 0 20px rgba(37, 211, 102, 0); } 100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); } }
 
-  @media (max-width: 900px) { .hero-stats { position: relative; right: auto; top: auto; transform: none; flex-direction: row; justify-content: space-between; margin-top: 50px; } .about-grid { grid-template-columns: 1fr; } }
+  /* Contact Section Adjustments */
+  .contact-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; }
+  .contact-info h3 { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 700; margin-bottom: 28px; }
+  .contact-item { display: flex; gap: 16px; margin-bottom: 24px; align-items: flex-start; transition: transform 0.3s; }
+  .contact-item:hover { transform: translateX(5px); }
+  .contact-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 0.3s; }
+  .contact-item:hover .contact-icon { transform: scale(1.1); }
+  .contact-item strong { display: block; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 4px; }
+  .contact-item a { color: var(--text); text-decoration: none; font-size: 0.95rem; transition: color 0.3s; }
+  .contact-item a:hover { color: var(--primary); }
+  
+  .contact-form { background: rgba(17,24,39,0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; padding: 40px; }
+  .contact-form h3 { font-family: 'Syne', sans-serif; font-size: 1.3rem; font-weight: 700; margin-bottom: 28px; }
+  .form-group { margin-bottom: 20px; }
+  .form-group label { display: block; font-size: 0.82rem; font-weight: 500; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .form-group input, .form-group textarea, .form-group select { width: 100%; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 13px 16px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.95rem; outline: none; transition: border-color 0.3s, box-shadow 0.3s; }
+  .form-group input:focus, .form-group textarea:focus, .form-group select:focus { border-color: var(--accent); box-shadow: 0 0 20px rgba(255,107,0,0.2); }
+  .form-group textarea { resize: vertical; min-height: 100px; }
+  .form-group select option { background: var(--dark2); }
+  .btn-submit { width: 100%; background: linear-gradient(135deg, var(--primary), #0045cc); color: #fff; border: none; padding: 15px; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s; box-shadow: 0 8px 30px rgba(0,87,255,0.3); position: relative; overflow: hidden; z-index: 1; }
+  .btn-submit::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(135deg, var(--accent), #cc5500); transition: left 0.4s ease; z-index: -1; }
+  .btn-submit:hover::before { left: 0; }
+  .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(255,107,0,0.4); }
+
+  @media (max-width: 900px) { .hero-stats { position: relative; right: auto; top: auto; transform: none; flex-direction: row; justify-content: space-between; margin-top: 50px; } .about-grid, .contact-wrap { grid-template-columns: 1fr; } }
   @media (max-width: 768px) { .nav-links { display: none; } h1 { font-size: 2.5rem; } .hero-stats { flex-wrap: wrap; gap: 20px; } .whatsapp-float { bottom: 20px; right: 20px; width: 50px; height: 50px; font-size: 25px; } }
 </style>
 </head>
@@ -230,12 +254,52 @@
   </div>
 </section>
 
+<section id="contact">
+  <div class="section-tag" data-aos="fade-right">Get In Touch</div>
+  <div class="section-title" data-aos="fade-right">Contact Us</div>
+  <div class="contact-wrap">
+    <div class="contact-info" data-aos="fade-right" data-aos-delay="100">
+      <h3>Let's grow your business together!</h3>
+      <div class="contact-item">
+        <div class="contact-icon" style="background:rgba(0,87,255,0.15);">📍</div>
+        <div><strong>Address</strong><a href="#" class="interactive">Jagdalpur, Chhattisgarh, India</a></div>
+      </div>
+      <div class="contact-item">
+        <div class="contact-icon" style="background:rgba(0,87,255,0.15);">📧</div>
+        <div><strong>Email</strong><a href="mailto:cgdigiprime@gmail.com" class="interactive">cgdigiprime@gmail.com</a></div>
+      </div>
+      <div class="contact-item">
+        <div class="contact-icon" style="background:#25D366;">
+          <svg width="24" height="24" viewBox="0 0 32 32" fill="white"><path d="M16 2C8.268 2 2 8.268 2 16c0 2.416.632 4.686 1.74 6.654L2 30l7.528-1.714A13.93 13.93 0 0016 30c7.732 0 14-6.268 14-14S23.732 2 16 2zm0 25.6a11.54 11.54 0 01-5.88-1.608l-.42-.252-4.468 1.016 1.036-4.352-.276-.448A11.56 11.56 0 014.4 16C4.4 9.592 9.592 4.4 16 4.4S27.6 9.592 27.6 16 22.408 27.6 16 27.6z"/></svg>
+        </div>
+        <div><strong>WhatsApp</strong><a href="https://wa.me/919294735124?text=Hi%20CGDIGI%20PRIME,%20I%20want%20to%20grow%20my%20business!" class="interactive" target="_blank">Chat on WhatsApp</a></div>
+      </div>
+    </div>
+    <div class="contact-form" data-aos="fade-left" data-aos-delay="200">
+      <h3>Send Us a Message</h3>
+      <div class="form-group"><label>Your Name</label><input type="text" class="interactive" placeholder="Enter your name"></div>
+      <div class="form-group"><label>Phone Number</label><input type="tel" class="interactive" placeholder="+91 XXXXXXXXXX"></div>
+      <div class="form-group">
+        <label>Service Needed</label>
+        <select class="interactive">
+          <option>Social Media Marketing</option>
+          <option>Facebook & Instagram Ads</option>
+          <option>Lead Generation</option>
+          <option>Business Branding</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Message</label><textarea class="interactive" placeholder="Tell us about your business..."></textarea></div>
+      <button class="btn-submit interactive">Send Message 🚀</button>
+    </div>
+  </div>
+</section>
+
 <footer style="padding: 50px 5%; border-top: 1px solid rgba(255,255,255,0.05); text-align: center; position: relative; z-index: 2; background: #050810;">
   <h2 style="font-family: 'Syne'; margin-bottom: 20px;">CGDIGI <span style="color:var(--accent)">PRIME</span></h2>
   <p style="color: var(--muted); font-size: 0.9rem;">Empowering Jagdalpur & Beyond. © 2026 All Rights Reserved.</p>
 </footer>
 
-<a href="https://wa.me/91XXXXXXXXXX?text=Hi%20CGDIGI%20PRIME,%20I%20want%20to%20grow%20my%20business!" class="whatsapp-float interactive" target="_blank" title="Chat with us on WhatsApp">
+<a href="https://wa.me/919294735124?text=Hi%20CGDIGI%20PRIME,%20I%20want%20to%20grow%20my%20business!" class="whatsapp-float interactive" target="_blank" title="Chat with us on WhatsApp">
   <svg width="35" height="35" viewBox="0 0 32 32" fill="white"><path d="M16 2C8.268 2 2 8.268 2 16c0 2.416.632 4.686 1.74 6.654L2 30l7.528-1.714A13.93 13.93 0 0016 30c7.732 0 14-6.268 14-14S23.732 2 16 2zm0 25.6a11.54 11.54 0 01-5.88-1.608l-.42-.252-4.468 1.016 1.036-4.352-.276-.448A11.56 11.56 0 014.4 16C4.4 9.592 9.592 4.4 16 4.4S27.6 9.592 27.6 16 22.408 27.6 16 27.6zm6.32-8.672c-.348-.174-2.06-1.016-2.38-1.132-.32-.116-.552-.174-.784.174-.232.348-.9 1.132-1.104 1.364-.204.232-.406.26-.754.086-.348-.174-1.468-.54-2.796-1.724-1.032-.92-1.728-2.056-1.932-2.404-.204-.348-.022-.536.152-.708.158-.156.348-.406.522-.61.174-.202.232-.348.348-.58.116-.232.058-.434-.028-.608-.088-.174-.784-1.892-1.074-2.59-.284-.68-.572-.588-.784-.598l-.668-.012c-.232 0-.608.086-.926.434-.318.348-1.216 1.19-1.216 2.9s1.244 3.364 1.418 3.596c.174.232 2.448 3.736 5.932 5.24.828.358 1.476.572 1.98.732.832.264 1.59.226 2.188.138.668-.1 2.06-.842 2.35-1.656.29-.814.29-1.512.204-1.656-.086-.144-.318-.232-.666-.406z"/></svg>
 </a>
 
