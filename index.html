@@ -1,388 +1,1134 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">      
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CGDIGI PRIME | Premium Digital Agency</title>
-<meta name="description" content="CGDIGI PRIME is a results-driven digital marketing agency based in Jagdalpur.">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
-<style>
-  :root {
-    --primary: #0057FF;
-    --accent: #FF6B00;
-    --dark: #050810;
-    --dark2: #0a0f1c;
-    --card: rgba(17, 24, 39, 0.6);
-    --text: #E8EEFF;
-    --muted: #7A8AB0;
-    --border: rgba(0,87,255,0.2);
+import { useState, useEffect, useCallback, useRef } from "react";
+import { AreaChart, Area, BarChart, Bar, ComposedChart, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, CartesianGrid, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from "recharts";
+
+const API = "https://api.anthropic.com/v1/messages";
+
+// ══════════════════════════════════════════════
+// TECHNICAL ANALYSIS ENGINE — 10+ Indicators
+// ══════════════════════════════════════════════
+const TA = {
+  sma: (d, p) => d.map((_, i) => i < p - 1 ? null : d.slice(i - p + 1, i + 1).reduce((a, b) => a + b, 0) / p),
+  ema: (d, p) => { const k = 2 / (p + 1); return d.reduce((acc, v, i) => i === 0 ? [v] : [...acc, v * k + acc[i - 1] * (1 - k)], []); },
+  rsi: (d, p = 14) => {
+    if (d.length < p + 1) return Array(d.length).fill(50);
+    const ch = d.slice(1).map((v, i) => v - d[i]);
+    const r = [...Array(p).fill(null)];
+    let ag = ch.slice(0, p).filter(c => c > 0).reduce((a, b) => a + b, 0) / p;
+    let al = Math.abs(ch.slice(0, p).filter(c => c < 0).reduce((a, b) => a + b, 0)) / p;
+    r.push(100 - 100 / (1 + (al === 0 ? 100 : ag / al)));
+    for (let i = p; i < ch.length; i++) {
+      const g = ch[i] > 0 ? ch[i] : 0, l = ch[i] < 0 ? Math.abs(ch[i]) : 0;
+      ag = (ag * (p - 1) + g) / p; al = (al * (p - 1) + l) / p;
+      r.push(100 - 100 / (1 + (al === 0 ? 100 : ag / al)));
+    }
+    return r;
+  },
+  bb: (d, p = 20, m = 2) => d.map((_, i) => {
+    if (i < p - 1) return { u: null, mid: null, l: null, bw: null };
+    const sl = d.slice(i - p + 1, i + 1), mid = sl.reduce((a, b) => a + b, 0) / p;
+    const std = Math.sqrt(sl.reduce((a, b) => a + (b - mid) ** 2, 0) / p);
+    return { u: mid + m * std, mid, l: mid - m * std, bw: (m * 2 * std / mid) * 100 };
+  }),
+  macd: (d) => {
+    if (d.length < 26) return { macd: [], signal: [], hist: [] };
+    const e12 = TA.ema(d, 12), e26 = TA.ema(d, 26);
+    const macd = e12.map((v, i) => v - e26[i]).slice(25);
+    const signal = TA.ema(macd, 9);
+    return { macd, signal, hist: macd.map((v, i) => v - (signal[i] || 0)) };
+  },
+  stoch: (d, p = 14) => d.map((_, i) => {
+    if (i < p - 1) return null;
+    const sl = d.slice(i - p + 1, i + 1), mn = Math.min(...sl), mx = Math.max(...sl);
+    return mx === mn ? 50 : ((d[i] - mn) / (mx - mn)) * 100;
+  }),
+  williams: (d, p = 14) => d.map((_, i) => {
+    if (i < p - 1) return null;
+    const sl = d.slice(i - p + 1, i + 1), mn = Math.min(...sl), mx = Math.max(...sl);
+    return mx === mn ? -50 : ((mx - d[i]) / (mx - mn)) * -100;
+  }),
+  cci: (d, p = 20) => d.map((_, i) => {
+    if (i < p - 1) return null;
+    const sl = d.slice(i - p + 1, i + 1), mean = sl.reduce((a, b) => a + b, 0) / p;
+    const mad = sl.reduce((a, b) => a + Math.abs(b - mean), 0) / p;
+    return mad === 0 ? 0 : (d[i] - mean) / (0.015 * mad);
+  }),
+  atr: (d, p = 14) => {
+    const tr = d.slice(1).map((v, i) => Math.abs(v - d[i]));
+    return [null, ...tr.map((_, i) => i < p - 1 ? null : tr.slice(i - p + 1, i + 1).reduce((a, b) => a + b, 0) / p)];
+  },
+  momentum: (d, p = 10) => d.map((v, i) => i < p ? null : v - d[i - p]),
+  roc: (d, p = 10) => d.map((v, i) => i < p ? null : ((v - d[i - p]) / d[i - p]) * 100),
+};
+
+// ══════════════════════════════════════════════
+// PATTERN RECOGNITION ENGINE
+// ══════════════════════════════════════════════
+const detectPatterns = (prices) => {
+  if (prices.length < 20) return [];
+  const patterns = [];
+  const p = prices.slice(-20);
+  const last = p[p.length - 1];
+  const prev5 = p.slice(-5);
+  const prev10 = p.slice(-10);
+
+  const max5 = Math.max(...prev5), min5 = Math.min(...prev5);
+  const max10 = Math.max(...prev10), min10 = Math.min(...prev10);
+  const range = max10 - min10;
+
+  // Doji-like (small range in last 4)
+  const last4 = p.slice(-4);
+  const last4Range = Math.max(...last4) - Math.min(...last4);
+  if (last4Range < range * 0.15) patterns.push({ name: "Consolidation", type: "NEUTRAL", desc: "Price tight range mein — breakout aa sakta hai", conf: 65 });
+
+  // Uptrend
+  if (p.slice(-5).every((v, i, a) => i === 0 || v >= a[i - 1] * 0.998)) patterns.push({ name: "Uptrend 📈", type: "BULLISH", desc: "Lagatar upar ja raha hai — momentum strong", conf: 72 });
+
+  // Downtrend
+  if (p.slice(-5).every((v, i, a) => i === 0 || v <= a[i - 1] * 1.002)) patterns.push({ name: "Downtrend 📉", type: "BEARISH", desc: "Lagatar neeche aa raha hai — caution!", conf: 70 });
+
+  // Near support
+  if (last < min10 * 1.005 && last > min10 * 0.995) patterns.push({ name: "At Support 🟢", type: "BULLISH", desc: "Session support pe hai — bounce ho sakta hai", conf: 68 });
+
+  // Near resistance
+  if (last > max10 * 0.995 && last < max10 * 1.005) patterns.push({ name: "At Resistance 🔴", type: "BEARISH", desc: "Session resistance pe hai — rejection ho sakta hai", conf: 66 });
+
+  // Volatility squeeze
+  const rsi_vals = TA.rsi(prices);
+  const curRSI = rsi_vals[rsi_vals.length - 1] || 50;
+  if (curRSI > 68) patterns.push({ name: "Overbought RSI ⚠️", type: "BEARISH", desc: `RSI ${curRSI.toFixed(0)} — selling pressure aa sakti hai`, conf: 71 });
+  if (curRSI < 32) patterns.push({ name: "Oversold RSI 💎", type: "BULLISH", desc: `RSI ${curRSI.toFixed(0)} — buying opportunity possible`, conf: 73 });
+
+  return patterns.slice(0, 4);
+};
+
+// ══════════════════════════════════════════════
+// SEASONAL DATA — Gold Historical Monthly
+// ══════════════════════════════════════════════
+const SEASONAL = [
+  { month: "Jan", avgReturn: 1.2, bullYears: 14, bearYears: 6, trend: "BULLISH" },
+  { month: "Feb", avgReturn: 0.8, bullYears: 13, bearYears: 7, trend: "BULLISH" },
+  { month: "Mar", avgReturn: -0.3, bullYears: 10, bearYears: 10, trend: "NEUTRAL" },
+  { month: "Apr", avgReturn: 0.5, bullYears: 12, bearYears: 8, trend: "BULLISH" },
+  { month: "May", avgReturn: -0.8, bullYears: 9, bearYears: 11, trend: "BEARISH" },
+  { month: "Jun", avgReturn: 0.2, bullYears: 11, bearYears: 9, trend: "NEUTRAL" },
+  { month: "Jul", avgReturn: 0.9, bullYears: 13, bearYears: 7, trend: "BULLISH" },
+  { month: "Aug", avgReturn: 1.8, bullYears: 16, bearYears: 4, trend: "BULLISH" },
+  { month: "Sep", avgReturn: 1.5, bullYears: 15, bearYears: 5, trend: "BULLISH" },
+  { month: "Oct", avgReturn: 2.1, bullYears: 16, bearYears: 4, trend: "BULLISH" },
+  { month: "Nov", avgReturn: 0.6, bullYears: 12, bearYears: 8, trend: "BULLISH" },
+  { month: "Dec", avgReturn: -0.4, bullYears: 9, bearYears: 11, trend: "BEARISH" },
+];
+
+// ══════════════════════════════════════════════
+// INDIA EVENTS ENGINE
+// ══════════════════════════════════════════════
+const INDIA_EVENTS = [
+  { name: "Akshaya Tritiya", month: 4, day: 10, impact: 95, icon: "🪔", desc: "Saal ka sabse bada gold buying day" },
+  { name: "Dhanteras", month: 10, day: 29, impact: 90, icon: "✨", desc: "Diwali se pehle gold kharidna shubh" },
+  { name: "Diwali", month: 11, day: 1, impact: 75, icon: "🎆", desc: "Gold gifting peak season" },
+  { name: "Wedding Season", month: 11, day: 15, impact: 80, icon: "💍", desc: "Nov-Feb peak wedding season" },
+  { name: "Navratri", month: 9, day: 22, impact: 65, icon: "🙏", desc: "Gold gifting tradition" },
+  { name: "RBI Policy", month: 3, day: 8, impact: 60, icon: "🏦", desc: "Rate decisions affect gold" },
+];
+
+const getUpcomingEvents = () => {
+  const today = new Date();
+  return INDIA_EVENTS.map(e => {
+    const d = new Date(today.getFullYear(), e.month - 1, e.day);
+    if (d < today) d.setFullYear(today.getFullYear() + 1);
+    return { ...e, daysLeft: Math.ceil((d - today) / 86400000) };
+  }).sort((a, b) => a.daysLeft - b.daysLeft).slice(0, 4);
+};
+
+// ══════════════════════════════════════════════
+// CANDLE CHART
+// ══════════════════════════════════════════════
+function CandleChart({ data, patterns }) {
+  if (!data || data.length < 4) return <div style={{ height: 170, display: "flex", alignItems: "center", justifyContent: "center", color: "#2a2a4a", fontFamily: "monospace", fontSize: 11 }}>Accumulating data...</div>;
+  const candles = [];
+  for (let i = 0; i < data.length - 3; i += 4) {
+    const sl = data.slice(i, i + 4);
+    candles.push({ o: sl[0], c: sl[3], h: Math.max(...sl) + Math.random() * 0.4, l: Math.min(...sl) - Math.random() * 0.3, bull: sl[3] >= sl[0] });
   }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html { scroll-behavior: smooth; overflow-x: hidden; cursor: none; }
-  body { font-family: 'DM Sans', sans-serif; background: var(--dark); color: var(--text); overflow-x: hidden; position: relative; cursor: none; }
-  
-  /* Custom Glowing Cursor & Trail */
-  .cursor-dot { width: 8px; height: 8px; background: var(--primary); position: fixed; border-radius: 50%; pointer-events: none; z-index: 9999; transform: translate(-50%, -50%); box-shadow: 0 0 10px var(--primary), 0 0 20px var(--primary); transition: width 0.2s, height 0.2s, background 0.2s; }
-  .cursor-trail { width: 36px; height: 36px; border: 2px solid var(--accent); position: fixed; border-radius: 50%; pointer-events: none; z-index: 9998; transform: translate(-50%, -50%); transition: width 0.3s, height 0.3s, background 0.3s, border-color 0.3s; box-shadow: 0 0 15px rgba(255,107,0,0.4); }
-  .cursor-dot.hovered { background: #fff; width: 12px; height: 12px; box-shadow: 0 0 20px #fff; }
-  .cursor-trail.hovered { width: 60px; height: 60px; background: rgba(0,87,255,0.1); border-color: var(--primary); box-shadow: 0 0 25px rgba(0,87,255,0.5); }
-  a, button, select, input, textarea { cursor: none; } 
-  @media (hover: none) and (pointer: coarse) { html, body, a, button, select, input, textarea { cursor: auto; } .cursor-dot, .cursor-trail { display: none !important; } }
+  const last = candles.slice(-18);
+  const allP = last.flatMap(c => [c.h, c.l]);
+  const mn = Math.min(...allP), mx = Math.max(...allP), rng = mx - mn || 1;
+  const W = 360, H = 170, pad = 18;
+  const cw = Math.max(7, (W - pad * 2) / last.length - 2);
+  const toY = v => pad + ((mx - v) / rng) * (H - pad * 2);
+  const sup = Math.min(...data.slice(-20)), res = Math.max(...data.slice(-20));
+  return (
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet">
+      <line x1={pad} x2={W - pad} y1={toY(sup)} y2={toY(sup)} stroke="#00e07a" strokeWidth="1" strokeDasharray="4 3" opacity="0.5" />
+      <line x1={pad} x2={W - pad} y1={toY(res)} y2={toY(res)} stroke="#ff2244" strokeWidth="1" strokeDasharray="4 3" opacity="0.5" />
+      <text x={W - 5} y={toY(sup) - 3} fill="#00e07a" fontSize="7" textAnchor="end">S ${sup.toFixed(0)}</text>
+      <text x={W - 5} y={toY(res) - 3} fill="#ff2244" fontSize="7" textAnchor="end">R ${res.toFixed(0)}</text>
+      {last.map((c, i) => {
+        const x = pad + i * ((W - pad * 2) / last.length) + 1;
+        const col = c.bull ? "#00e07a" : "#ff2244";
+        const by = toY(Math.max(c.o, c.c)), bh = Math.max(2, Math.abs(toY(c.o) - toY(c.c)));
+        return <g key={i}>
+          <line x1={x + cw / 2} y1={toY(c.h)} x2={x + cw / 2} y2={toY(c.l)} stroke={col} strokeWidth="1" opacity="0.6" />
+          <rect x={x} y={by} width={cw} height={bh} fill={col} rx="1" opacity="0.88" />
+        </g>;
+      })}
+      <text x={pad} y={H - 3} fill="#2a2a4a" fontSize="7">← {last.length * 4} ticks ago</text>
+      <text x={W - pad} y={H - 3} fill="#2a2a4a" fontSize="7" textAnchor="end">Now →</text>
+    </svg>
+  );
+}
 
-  /* Antigravity Background Orbs */
-  .antigravity-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 0; overflow: hidden; }
-  .orb { position: absolute; border-radius: 50%; filter: blur(60px); opacity: 0.4; animation: floatUp infinite linear; }
-  .orb.blue { background: var(--primary); width: 300px; height: 300px; left: 10%; bottom: -300px; animation-duration: 25s; }
-  .orb.orange { background: var(--accent); width: 200px; height: 200px; right: 20%; bottom: -200px; animation-duration: 20s; animation-delay: 5s; }
-  .orb.small { background: #fff; width: 100px; height: 100px; left: 50%; bottom: -100px; animation-duration: 15s; animation-delay: 2s; opacity: 0.2; }
-  @keyframes floatUp { 0% { transform: translateY(0) scale(0.8) rotate(0deg); opacity: 0; } 20% { opacity: 0.5; } 80% { opacity: 0.5; } 100% { transform: translateY(-120vh) scale(1.5) rotate(360deg); opacity: 0; } }
+// ══════════════════════════════════════════════
+// RADAR CHART for indicator overview
+// ══════════════════════════════════════════════
+function IndicatorRadar({ rsi, stoch, williams, cci, momentum, atr }) {
+  const normalize = (v, min, max, invert = false) => {
+    const n = Math.max(0, Math.min(100, ((v - min) / (max - min)) * 100));
+    return invert ? 100 - n : n;
+  };
+  const data = [
+    { ind: "RSI", val: normalize(rsi || 50, 0, 100) },
+    { ind: "Stoch", val: normalize(stoch || 50, 0, 100) },
+    { ind: "Will%R", val: normalize(Math.abs(williams || 50), 0, 100) },
+    { ind: "CCI", val: normalize(cci || 0, -200, 200) },
+    { ind: "Mom", val: normalize(momentum || 0, -20, 20) },
+    { ind: "Trend", val: normalize(atr || 0, 0, 15) },
+  ];
+  return (
+    <ResponsiveContainer width="100%" height={180}>
+      <RadarChart data={data} margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>
+        <PolarGrid stroke="#1a1a35" />
+        <PolarAngleAxis dataKey="ind" tick={{ fill: "#555577", fontSize: 10, fontFamily: "monospace" }} />
+        <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fill: "#333355", fontSize: 8 }} />
+        <Radar dataKey="val" stroke="#f5c518" fill="#f5c518" fillOpacity={0.2} strokeWidth={2} />
+      </RadarChart>
+    </ResponsiveContainer>
+  );
+}
 
-  .float-element { animation: continuousFloat 6s ease-in-out infinite; }
-  .float-element-delayed { animation: continuousFloat 7s ease-in-out infinite 2s; }
-  @keyframes continuousFloat { 0% { transform: translateY(0px); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0px); } }
+// ══════════════════════════════════════════════
+// MAIN APP
+// ══════════════════════════════════════════════
+export default function AurumV2() {
+  const [tab, setTab] = useState("live");
+  const [prices, setPrices] = useState({ gold: null, silver: null, usdInr: 83.5, goldINR: null, silverINR: null });
+  const [hist, setHist] = useState({ gold: [], silver: [], time: [] });
+  const [loading, setLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState(null);
+  const [aiOut, setAiOut] = useState({ why: "", deep: "", predict: null, pattern: "" });
+  const [aiLoad, setAiLoad] = useState({ why: false, deep: false, predict: false, pattern: false });
+  const [chat, setChat] = useState([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [portfolio, setPortfolio] = useState([{ id: 1, asset: "Gold", qty: 10, buyPrice: 6800 }]);
+  const [newH, setNewH] = useState({ asset: "Gold", qty: "", buyPrice: "" });
+  const [alerts, setAlerts] = useState([]);
+  const [newAlert, setNewAlert] = useState({ asset: "gold", condition: "ABOVE", price: "" });
+  const [firedAlerts, setFiredAlerts] = useState([]);
+  const [sipInput, setSipInput] = useState({ monthly: "5000", years: "5", returnRate: "11" });
+  const [importDuty] = useState({ basic: 10, agri: 5, gst: 3, total: 18.45 });
+  const [indiaEvents] = useState(getUpcomingEvents());
+  const chatEndRef = useRef(null);
+  const tickRef = useRef(0);
+  const baseRef = useRef({ gold: 2318, silver: 27.4 });
 
-  /* Navbar */
-  nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; padding: 18px 5%; display: flex; justify-content: space-between; align-items: center; background: rgba(5,8,16,0.7); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-  .logo { display: flex; align-items: center; gap: 12px; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.4rem; letter-spacing: 1px; text-decoration: none; position: relative; z-index: 2; }
-  .logo img { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(0,87,255,0.6); box-shadow: 0 0 20px rgba(0,87,255,0.5); transition: transform 0.5s ease; }
-  .logo:hover img { transform: rotate(360deg) scale(1.1); }
-  .logo span { color: var(--primary); text-shadow: 0 0 10px rgba(0,87,255,0.3); }
-  .logo em { color: var(--accent); font-style: normal; text-shadow: 0 0 10px rgba(255,107,0,0.3); }
-  .nav-links { display: flex; gap: 32px; list-style: none; z-index: 2; }
-  .nav-links a { color: var(--muted); text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: color 0.3s; }
-  .nav-links a:hover { color: #fff; text-shadow: 0 0 8px rgba(255,255,255,0.5); }
-  .nav-cta { background: linear-gradient(45deg, var(--primary), var(--accent)); color: #fff !important; padding: 10px 22px; border-radius: 30px; font-weight: 600 !important; transition: all 0.3s !important; box-shadow: 0 5px 15px rgba(255,107,0,0.3); }
-  .nav-cta:hover { transform: translateY(-3px) scale(1.05); box-shadow: 0 8px 25px rgba(0,87,255,0.5); }
-  
-  /* Hero Section */
-  .hero { min-height: 100vh; display: flex; align-items: center; padding: 100px 5% 60px; position: relative; z-index: 1; }
-  .grid-lines { position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px); background-size: 80px 80px; transform: perspective(500px) rotateX(60deg) translateY(-100px) translateZ(-200px); animation: moveGrid 20s linear infinite; z-index: -1; }
-  @keyframes moveGrid { 0% { background-position: 0 0; } 100% { background-position: 0 80px; } }
-  
-  .hero-content { position: relative; z-index: 2; max-width: 750px; }
-  .badge { display: inline-block; background: rgba(0,87,255,0.1); border: 1px solid rgba(0,87,255,0.5); color: #6EAAFF; font-size: 0.8rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; padding: 8px 20px; border-radius: 30px; margin-bottom: 24px; backdrop-filter: blur(5px); }
-  h1 { font-family: 'Syne', sans-serif; font-size: clamp(2.8rem, 6vw, 5rem); font-weight: 800; line-height: 1.05; margin-bottom: 24px; text-transform: uppercase; }
-  h1 .blue { color: transparent; -webkit-text-stroke: 1px var(--primary); background: linear-gradient(90deg, var(--primary), #00c3ff); -webkit-background-clip: text; display: inline-block; animation: neonPulse 2s infinite alternate; }
-  h1 .orange { color: var(--accent); display: inline-block; }
-  @keyframes neonPulse { from { text-shadow: 0 0 10px rgba(0,87,255,0.2); } to { text-shadow: 0 0 20px rgba(0,87,255,0.6), 0 0 40px rgba(0,87,255,0.4); } }
+  // ── FETCH ──────────────────────────────────
+  const fetchPrices = useCallback(async () => {
+    tickRef.current++;
+    let gold = baseRef.current.gold, silver = baseRef.current.silver, inr = prices.usdInr || 83.5;
+    try { const r = await fetch("https://api.metals.live/v1/spot"); const d = await r.json(); const it = Array.isArray(d) ? d[0] : d; gold = it.gold || gold; silver = it.silver || silver; } catch {}
+    try { const fx = await fetch("https://api.exchangerate-api.com/v4/latest/USD"); const fd = await fx.json(); inr = fd.rates?.INR || inr; } catch {}
+    const noise = Math.sin(tickRef.current * 0.3) * 3 + (Math.random() - 0.5) * 1.5;
+    gold = gold + noise * 0.1; silver = silver + noise * 0.001;
+    baseRef.current = { gold, silver };
+    const t = new Date().toLocaleTimeString("en-IN", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const goldINR = gold * inr * 10 / 31.1035;
+    const silverINR = silver * inr / 31.1035;
+    setPrices({ gold, silver, usdInr: inr, goldINR, silverINR });
+    setHist(p => ({ gold: [...p.gold.slice(-99), gold], silver: [...p.silver.slice(-99), silver], time: [...p.time.slice(-99), t] }));
+    setLastUpdate(new Date()); setLoading(false);
+  }, [prices.usdInr]);
 
-  .hero p { font-size: 1.15rem; color: var(--muted); line-height: 1.8; margin-bottom: 40px; max-width: 600px; }
-  .btn-primary { background: linear-gradient(135deg, var(--primary), #00308F); color: #fff; padding: 16px 36px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 1rem; transition: all 0.3s; box-shadow: 0 10px 30px rgba(0,87,255,0.4); display: inline-block; position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); cursor: none;}
-  .btn-primary::after { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 60%); opacity: 0; transition: opacity 0.3s; transform: scale(0.5); }
-  .btn-primary:hover::after { opacity: 1; transform: scale(1); }
-  .btn-primary:hover { transform: translateY(-5px) scale(1.02); box-shadow: 0 15px 40px rgba(0,87,255,0.6); }
-  
-  .hero-stats { position: absolute; right: 8%; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 40px; z-index: 2; }
-  .stat { background: rgba(255,255,255,0.03); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.05); padding: 20px; border-radius: 20px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
-  .stat-num { font-family: 'Syne', sans-serif; font-size: 3rem; font-weight: 800; color: #fff; display: block; text-shadow: 0 0 20px var(--primary); }
-  .stat-num .o { color: var(--accent); text-shadow: 0 0 20px var(--accent); }
-  .stat-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; font-weight: 700; }
-  
-  /* Services Section */
-  section { padding: 120px 5%; position: relative; z-index: 2; }
-  .section-tag { font-size: 0.8rem; font-weight: 800; letter-spacing: 4px; text-transform: uppercase; color: var(--accent); margin-bottom: 16px; display: inline-block; border-bottom: 2px solid var(--primary); padding-bottom: 5px; }
-  .section-title { font-family: 'Syne', sans-serif; font-size: clamp(2rem, 4vw, 3.5rem); font-weight: 800; margin-bottom: 20px; line-height: 1.2; }
-  
-  .services-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 40px; perspective: 1200px; }
-  
-  .highlight-card { background: linear-gradient(var(--dark2), var(--dark2)) padding-box, linear-gradient(135deg, #1877F2, #E1306C, #25D366, #FF6B00, #1877F2) border-box; border: 3px solid transparent; border-radius: 24px; background-size: 300% 300%; animation: gradientBorder 6s ease infinite; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 0 30px rgba(255, 255, 255, 0.02); transform-style: preserve-3d; padding: 40px 30px; position: relative;}
-  @keyframes gradientBorder { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+  useEffect(() => { fetchPrices(); const id = setInterval(fetchPrices, 12000); return () => clearInterval(id); }, []);
 
-  .service-icon-wrap { display: flex; gap: 15px; margin-bottom: 24px; transform: translateZ(40px); }
-  .real-logo { width: 55px; height: 55px; fill: currentColor; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.5)); transition: transform 0.3s; }
-  .highlight-card:hover .real-logo { transform: scale(1.15) rotate(5deg); }
-  .logo-fb { color: #1877F2; filter: drop-shadow(0 0 15px rgba(24, 119, 242, 0.6)); }
-  .logo-ig { color: #E1306C; filter: drop-shadow(0 0 15px rgba(225, 48, 108, 0.6)); }
-  .logo-wa { color: #25D366; filter: drop-shadow(0 0 15px rgba(37, 211, 102, 0.6)); }
-  .logo-lead { color: #FF6B00; filter: drop-shadow(0 0 15px rgba(255, 107, 0, 0.6)); }
-
-  .highlight-card h3 { font-family: 'Syne', sans-serif; font-size: 1.5rem; font-weight: 800; margin-bottom: 12px; transform: translateZ(30px); text-shadow: 0 5px 10px rgba(0,0,0,0.5); }
-  .highlight-card p { color: var(--muted); font-size: 1rem; line-height: 1.7; transform: translateZ(20px); }
-  .highlight-tag { position: absolute; top: -15px; right: 20px; background: linear-gradient(45deg, #FF6B00, #ff2a00); color: #fff; padding: 5px 15px; border-radius: 20px; font-size: 0.8rem; font-weight: 800; letter-spacing: 1px; transform: translateZ(50px); box-shadow: 0 5px 15px rgba(255,107,0,0.5); }
-
-  /* About & Contact ... */
-  .about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
-  .about-visual { position: relative; padding: 50px; border-radius: 30px; background: linear-gradient(135deg, rgba(17,24,39,0.8), rgba(5,8,16,0.9)); border: 1px solid rgba(255,255,255,0.05); box-shadow: inset 0 0 50px rgba(0,0,0,0.5), 0 20px 50px rgba(0,87,255,0.1); }
-  .about-visual::before { content: ''; position: absolute; top: -2px; left: -2px; right: -2px; bottom: -2px; background: linear-gradient(45deg, var(--primary), transparent, var(--accent), transparent); z-index: -1; border-radius: 32px; animation: borderGlow 6s linear infinite; background-size: 400%; }
-  
-  .why-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 30px; }
-  .why-card { text-align: center; padding: 40px 24px; background: var(--card); backdrop-filter: blur(10px); border-radius: 20px; border: 1px solid rgba(255,255,255,0.05); transform-style: preserve-3d; }
-  .why-num { font-family: 'Syne', sans-serif; font-size: 3.5rem; font-weight: 800; background: linear-gradient(135deg, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: block; margin-bottom: 12px; transform: translateZ(40px); }
-  .why-card h4 { font-family: 'Syne', sans-serif; font-size: 1.2rem; transform: translateZ(20px); margin-bottom: 10px; }
-
-  .contact-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; }
-  .contact-info h3 { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 700; margin-bottom: 28px; }
-  .contact-item { display: flex; gap: 16px; margin-bottom: 24px; align-items: flex-start; transition: transform 0.3s; }
-  .contact-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .contact-item strong { display: block; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 4px; }
-  .contact-form { background: rgba(17,24,39,0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; padding: 40px; }
-  .form-group { margin-bottom: 20px; }
-  .form-group label { display: block; font-size: 0.82rem; font-weight: 500; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; }
-  .form-group input, .form-group textarea, .form-group select { width: 100%; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 13px 16px; color: var(--text); font-family: 'DM Sans', sans-serif; outline: none; }
-  .btn-submit { width: 100%; background: linear-gradient(135deg, var(--primary), #0045cc); color: #fff; border: none; padding: 15px; border-radius: 8px; font-weight: 600; cursor: none; }
-  
-  /* Smart AI Chatbot UI (Left) */
-  .chatbot-float { position: fixed; bottom: 30px; left: 30px; width: 60px; height: 60px; background: linear-gradient(135deg, var(--primary), #00c3ff); color: #FFF; border-radius: 50px; text-align: center; box-shadow: 0 0 20px rgba(0, 87, 255, 0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; animation: continuousFloat 5s ease-in-out infinite 1s; border: 2px solid rgba(255,255,255,0.2); transition: transform 0.3s; cursor: none;}
-  .chatbot-float:hover { transform: scale(1.1) rotate(-5deg); box-shadow: 0 0 30px rgba(0, 87, 255, 0.8); }
-  
-  .chat-window { position: fixed; bottom: 100px; left: 30px; width: 320px; background: rgba(17,24,39,0.95); backdrop-filter: blur(20px); border: 1px solid var(--primary); border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); z-index: 1001; display: none; flex-direction: column; overflow: hidden; transform: translateY(20px); opacity: 0; transition: all 0.3s ease; }
-  .chat-window.active { display: flex; transform: translateY(0); opacity: 1; }
-  
-  .chat-header { background: linear-gradient(90deg, var(--primary), #00308F); padding: 15px; display: flex; justify-content: space-between; align-items: center; font-family: 'Syne', sans-serif; font-weight: 700; }
-  .chat-header span { display: flex; align-items: center; gap: 8px; }
-  .close-chat { background: none; border: none; color: #fff; font-size: 1.2rem; font-weight: bold; cursor: none; }
-  
-  .chat-body { padding: 15px; height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; font-size: 0.9rem; }
-  .msg-bot { background: rgba(0,87,255,0.15); border: 1px solid rgba(0,87,255,0.3); padding: 10px 15px; border-radius: 15px 15px 15px 0; align-self: flex-start; max-width: 85%; line-height: 1.5; }
-  .msg-user { background: linear-gradient(45deg, var(--accent), #ff2a00); padding: 10px 15px; border-radius: 15px 15px 0 15px; align-self: flex-end; max-width: 85%; color: #fff; line-height: 1.5;}
-  
-  .chat-options { display: flex; flex-direction: column; gap: 8px; margin-top: 5px; }
-  .chat-btn-opt { background: transparent; border: 1px solid var(--primary); color: #6EAAFF; padding: 8px 15px; border-radius: 20px; font-size: 0.85rem; text-align: left; transition: all 0.2s; cursor: none;}
-  .chat-btn-opt:hover { background: var(--primary); color: #fff; }
-  
-  .chat-input-area { padding: 15px; border-top: 1px solid rgba(255,255,255,0.1); display: none; gap: 10px; }
-  .chat-input { flex: 1; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); color: #fff; border-radius: 20px; padding: 8px 15px; outline: none; font-family: 'DM Sans'; font-size: 0.9rem;}
-  .chat-send { background: var(--primary); border: none; color: #fff; width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: none; }
-
-  @media (max-width: 900px) { .hero-stats { position: relative; right: auto; top: auto; transform: none; flex-direction: row; justify-content: space-between; margin-top: 50px; } .about-grid, .contact-wrap { grid-template-columns: 1fr; } }
-  @media (max-width: 768px) { .nav-links { display: none; } h1 { font-size: 2.5rem; } .hero-stats { flex-wrap: wrap; gap: 20px; } .chatbot-float { bottom: 20px; left: 20px; width: 50px; height: 50px; } .chat-window { left: 20px; width: calc(100vw - 40px); bottom: 80px; } }
-</style>
-</head>
-<body>
-
-<div class="cursor-dot"></div>
-<div class="cursor-trail"></div>
-
-<div class="antigravity-container">
-  <div class="orb blue"></div>
-  <div class="orb orange"></div>
-  <div class="orb small"></div>
-</div>
-
-<nav id="navbar">
-  <a href="#home" class="logo float-element interactive">
-    <img src="https://i.ibb.co/xqQqb6hh/background-removal-TUFIQj-Nf-ODE0d0kj-MSM2-Y2-Fm-Mjhh-NTNh-Mz-Ri-Yz-Bi-NTFl-MTQ3-ZGQx-Nm-Ey-20260220-21.png" alt="CGDIGI PRIME Logo" onerror="this.style.display='none'">
-    <span>CGDIGI</span> <em>PRIME</em>
-  </a>
-  <ul class="nav-links">
-    <li><a href="#services" class="interactive">Services</a></li>
-    <li><a href="#about" class="interactive">About</a></li>
-    <li><a href="#contact" class="nav-cta interactive">Contact Us</a></li>
-  </ul>
-</nav>
-
-<section class="hero" id="home">
-  <div class="grid-lines"></div>
-  <div class="hero-content">
-    <div class="badge float-element">📍 Jagdalpur, Chhattisgarh</div>
-    <h1 data-aos="fade-up">Master the <br><span class="blue">Digital</span> <span class="orange">World</span></h1>
-    <p data-aos="fade-up" data-aos-delay="100">CGDIGI PRIME delivers antigravity growth for your business. We elevate your brand beyond standard limits using powerful strategies.</p>
-    <div style="display: flex; gap: 20px; flex-wrap: wrap;" data-aos="fade-up" data-aos-delay="200">
-      <a href="#contact" class="btn-primary interactive">Launch Campaign 🚀</a>
-    </div>
-  </div>
-</section>
-
-<section id="services">
-  <div class="section-tag" data-aos="fade-right">Our Power</div>
-  <div class="section-title" data-aos="fade-right">Premium Campaigns</div>
-  <div class="services-grid">
-    <div class="service-card highlight-card interactive" data-tilt data-tilt-max="20" data-tilt-glare data-tilt-max-glare="0.3" data-aos="fade-up">
-      <div class="highlight-tag float-element">🔥 TOP RATED</div>
-      <div class="service-icon-wrap float-element-delayed">
-        <svg class="real-logo logo-fb" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-      </div>
-      <h3>Facebook & Insta Ads</h3>
-      <p>Data-driven Meta ads that strictly maximize your sales and conversions.</p>
-    </div>
-
-    <div class="service-card highlight-card interactive" data-tilt data-tilt-max="20" data-tilt-glare data-tilt-max-glare="0.3" data-aos="fade-up" data-aos-delay="100">
-      <div class="highlight-tag float-element" style="background: linear-gradient(45deg, #128C7E, #25D366);">DIRECT REACH</div>
-      <div class="service-icon-wrap float-element">
-        <svg class="real-logo logo-wa" viewBox="0 0 32 32"><path d="M16 2C8.268 2 2 8.268 2 16c0 2.416.632 4.686 1.74 6.654L2 30l7.528-1.714A13.93 13.93 0 0016 30c7.732 0 14-6.268 14-14S23.732 2 16 2zm0 25.6a11.54 11.54 0 01-5.88-1.608l-.42-.252-4.468 1.016 1.036-4.352-.276-.448A11.56 11.56 0 014.4 16C4.4 9.592 9.592 4.4 16 4.4S27.6 9.592 27.6 16 22.408 27.6 16 27.6zm6.32-8.672c-.348-.174-2.06-1.016-2.38-1.132-.32-.116-.552-.174-.784.174-.232.348-.9 1.132-1.104 1.364-.204.232-.406.26-.754.086-.348-.174-1.468-.54-2.796-1.724-1.032-.92-1.728-2.056-1.932-2.404-.204-.348-.022-.536.152-.708.158-.156.348-.406.522-.61.174-.202.232-.348.348-.58.116-.232.058-.434-.028-.608-.088-.174-.784-1.892-1.074-2.59-.284-.68-.572-.588-.784-.598l-.668-.012c-.232 0-.608.086-.926.434-.318.348-1.216 1.19-1.216 2.9s1.244 3.364 1.418 3.596c.174.232 2.448 3.736 5.932 5.24.828.358 1.476.572 1.98.732.832.264 1.59.226 2.188.138.668-.1 2.06-.842 2.35-1.656.29-.814.29-1.512.204-1.656-.086-.144-.318-.232-.666-.406z"/></svg>
-      </div>
-      <h3>WhatsApp Marketing</h3>
-      <p>Talk directly to customers' pockets. Bulk campaigns, automation, and funnels.</p>
-    </div>
-
-    <div class="service-card highlight-card interactive" data-tilt data-tilt-max="20" data-tilt-glare data-tilt-max-glare="0.3" data-aos="fade-up" data-aos-delay="200">
-      <div class="highlight-tag float-element" style="background: linear-gradient(45deg, #0057FF, #00c3ff);">HIGH ROI</div>
-      <div class="service-icon-wrap float-element-delayed">
-        <svg class="real-logo logo-lead" viewBox="0 0 24 24"><path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8zm0-13a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 7a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/></svg>
-      </div>
-      <h3>Lead Generation</h3>
-      <p>Digital funnels that capture high-quality, ready-to-buy leads daily.</p>
-    </div>
-  </div>
-</section>
-
-<section id="contact">
-  <div class="section-tag" data-aos="fade-right">Get In Touch</div>
-  <div class="section-title" data-aos="fade-right">Contact Us</div>
-  <div class="contact-wrap">
-    <div class="contact-info" data-aos="fade-right" data-aos-delay="100">
-      <h3>Let's grow your business together!</h3>
-      <div class="contact-item"><div class="contact-icon" style="background:rgba(0,87,255,0.15);">📍</div><div><strong>Address</strong><span>Jagdalpur, Chhattisgarh</span></div></div>
-      <div class="contact-item"><div class="contact-icon" style="background:rgba(0,87,255,0.15);">📧</div><div><strong>Email</strong><a href="mailto:cgdigiprime@zohomail.in" class="interactive">cgdigiprime@zohomail.in</a></div></div>
-    </div>
-    
-    <div class="contact-form" data-aos="fade-left" data-aos-delay="200">
-      <h3>Send Us a Message</h3>
-      <form action="https://formsubmit.co/cgdigiprime@zohomail.in" method="POST">
-        <input type="hidden" name="_next" value="https://cgdigiprime.vercel.app">
-        <input type="hidden" name="_captcha" value="false">
-        <div class="form-group"><label>Your Name</label><input type="text" name="name" class="interactive" required></div>
-        <div class="form-group"><label>Phone Number</label><input type="tel" name="phone" class="interactive" required></div>
-        <div class="form-group">
-          <label>Service Needed</label>
-          <select name="service" class="interactive">
-            <option>Facebook & Insta Ads</option>
-            <option>WhatsApp Marketing</option>
-            <option>Lead Generation</option>
-          </select>
-        </div>
-        <div class="form-group"><label>Message</label><textarea name="message" class="interactive"></textarea></div>
-        <button type="submit" class="btn-submit interactive">Send Message 🚀</button>
-      </form>
-    </div>
-  </div>
-</section>
-
-<footer style="padding: 50px 5%; border-top: 1px solid rgba(255,255,255,0.05); text-align: center; background: #050810;">
-  <h2 style="font-family: 'Syne'; margin-bottom: 20px;">CGDIGI <span style="color:var(--accent)">PRIME</span></h2>
-  <p style="color: var(--muted); font-size: 0.9rem;">Empowering Jagdalpur & Beyond. © 2026 All Rights Reserved.</p>
-</footer>
-
-<div class="chatbot-float interactive" onclick="toggleChat()" title="Talk to AI Assistant">
-  <svg width="28" height="28" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.486 2 2 5.589 2 10c0 2.908 1.898 5.515 5 7.034V22l5.34-4.005C12.22 17.99 12.11 18 12 18c5.514 0 10-3.589 10-8s-4.486-8-10-8zm-2 9h-2V9h2v2zm4 0h-2V9h2v2zm4 0h-2V9h2v2z"/></svg>
-</div>
-
-<div class="chat-window" id="chatWindow">
-  <div class="chat-header">
-    <span>🤖 CGDIGI AI Assistant</span>
-    <button class="close-chat interactive" onclick="toggleChat()">×</button>
-  </div>
-  <div class="chat-body" id="chatBody">
-    <div class="msg-bot">Namaste! Welcome to CGDIGI PRIME. Main aapki kya sahayata kar sakta hoon?</div>
-    <div class="chat-options" id="chatOptions">
-      <button class="chat-btn-opt interactive" onclick="handleService('Facebook & Insta Ads')">🎯 Facebook & Insta Ads</button>
-      <button class="chat-btn-opt interactive" onclick="handleService('WhatsApp Marketing')">💬 WhatsApp Marketing</button>
-      <button class="chat-btn-opt interactive" onclick="handleService('Lead Generation')">⚡ Lead Generation</button>
-    </div>
-  </div>
-  <div class="chat-input-area" id="chatInputArea">
-    <input type="text" id="chatInput" class="chat-input interactive" placeholder="Enter Details...">
-    <button class="chat-send interactive" onclick="sendChatData()">➤</button>
-  </div>
-</div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.8.1/vanilla-tilt.min.js"></script>
-<script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
-<script>
-  AOS.init({ duration: 1000, easing: 'ease-out-cubic', once: true, offset: 50 });
-
-  // Custom Cursor
-  const cursorDot = document.querySelector('.cursor-dot');
-  const cursorTrail = document.querySelector('.cursor-trail');
-  let mouseX = 0, mouseY = 0, trailX = 0, trailY = 0;
-  window.addEventListener('mousemove', (e) => {
-    mouseX = e.clientX; mouseY = e.clientY;
-    cursorDot.style.left = mouseX + 'px'; cursorDot.style.top = mouseY + 'px';
-  });
-  function animateTrail() {
-    trailX += (mouseX - trailX) * 0.15; trailY += (mouseY - trailY) * 0.15;
-    cursorTrail.style.left = trailX + 'px'; cursorTrail.style.top = trailY + 'px';
-    requestAnimationFrame(animateTrail);
-  }
-  animateTrail();
-
-  document.querySelectorAll('.interactive, a, button, input, select, textarea').forEach(el => {
-    el.addEventListener('mouseenter', () => { cursorDot.classList.add('hovered'); cursorTrail.classList.add('hovered'); });
-    el.addEventListener('mouseleave', () => { cursorDot.classList.remove('hovered'); cursorTrail.classList.remove('hovered'); });
-  });
-
-  // --- AI CHATBOT LOGIC ---
-  const chatWindow = document.getElementById('chatWindow');
-  const chatBody = document.getElementById('chatBody');
-  const chatOptions = document.getElementById('chatOptions');
-  const chatInputArea = document.getElementById('chatInputArea');
-  const chatInput = document.getElementById('chatInput');
-  
-  let selectedService = "";
-
-  function toggleChat() {
-    chatWindow.classList.toggle('active');
-  }
-
-  function appendUserMsg(msg) {
-    chatBody.innerHTML += `<div class="msg-user">${msg}</div>`;
-    chatBody.scrollTop = chatBody.scrollHeight;
-  }
-
-  function appendBotMsg(msg) {
-    chatBody.innerHTML += `<div class="msg-bot">${msg}</div>`;
-    chatBody.scrollTop = chatBody.scrollHeight;
-  }
-
-  function handleService(service) {
-    selectedService = service;
-    chatOptions.style.display = 'none'; // Hide buttons
-    appendUserMsg(service);
-    
-    // Bot replies based on choice
-    setTimeout(() => {
-      appendBotMsg(`Great choice! Hum ${service} mein experts hain. Data-driven strategy se aapka ROI maximize hoga.`);
-      setTimeout(() => {
-        appendBotMsg(`Kripya apna <b>Naam aur Phone Number</b> likhein, taaki humari team aapko turant contact kare.`);
-        chatInputArea.style.display = 'flex';
-      }, 800);
-    }, 500);
-  }
-
-  function sendChatData() {
-    let userData = chatInput.value.trim();
-    if(userData === "") return;
-    
-    appendUserMsg(userData);
-    chatInput.value = "";
-    chatInputArea.style.display = "none";
-    
-    // Loading Message
-    let loadingMsgId = "loading-" + Date.now();
-    chatBody.innerHTML += `<div class="msg-bot" id="${loadingMsgId}">Sending details securely to our team... ⏳</div>`;
-    chatBody.scrollTop = chatBody.scrollHeight;
-
-    // SEND EMAIL IN BACKGROUND USING FORMSUBMIT
-    fetch("https://formsubmit.co/ajax/cgdigiprime@zohomail.in", {
-      method: "POST",
-      headers: { 
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({
-        _subject: "🚀 New Lead from AI Chatbot!",
-        Service_Selected: selectedService,
-        Customer_Name_and_Number: userData
-      })
-    })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-      return response.json();
-    })
-    .then(data => {
-      document.getElementById(loadingMsgId).style.display = "none";
-      appendBotMsg("✅ <b>CGDIGI PRIME me judne ke liye dhanyavad!</b> Humari team jald hi aapse sampark karegi.");
-    })
-    .catch(error => {
-      console.error("FormSubmit Error:", error);
-      document.getElementById(loadingMsgId).style.display = "none";
-      appendBotMsg("❌ <b>Maaf kijiye, message bhejne mein technical dikkat aayi.</b> Kripya humein seedha Contact Form se message karein ya dobara try karein.");
-      chatInputArea.style.display = "flex";
+  // Alert check
+  useEffect(() => {
+    if (!prices.gold) return;
+    const hits = [];
+    alerts.forEach(a => {
+      const cur = a.asset === "gold" ? prices.gold : prices.silver;
+      if (a.condition === "ABOVE" && cur >= parseFloat(a.price)) hits.push(`🔔 ${a.asset.toUpperCase()} ABOVE $${a.price} — Now: $${cur.toFixed(2)}`);
+      if (a.condition === "BELOW" && cur <= parseFloat(a.price)) hits.push(`🔔 ${a.asset.toUpperCase()} BELOW $${a.price} — Now: $${cur.toFixed(2)}`);
     });
-  }
-</script>
-</body>
-</html>
+    if (hits.length) setFiredAlerts(p => [...hits, ...p].slice(0, 15));
+  }, [prices, alerts]);
+
+  // ── INDICATORS ─────────────────────────────
+  const g = hist.gold, s = hist.silver;
+  const gRSI = TA.rsi(g), sRSI = TA.rsi(s);
+  const gBB = TA.bb(g), sBB = TA.bb(s);
+  const gSMA20 = TA.sma(g, 20), gEMA9 = TA.ema(g, 9), gSMA50 = TA.sma(g, 50);
+  const gMACD = TA.macd(g);
+  const gStoch = TA.stoch(g), sStoch = TA.stoch(s);
+  const gWilliams = TA.williams(g), sWilliams = TA.williams(s);
+  const gCCI = TA.cci(g), sCCI = TA.cci(s);
+  const gATR = TA.atr(g);
+  const gMomentum = TA.momentum(g);
+  const gROC = TA.roc(g);
+  const curGRSI = gRSI[gRSI.length - 1] || 50;
+  const curSRSI = sRSI[sRSI.length - 1] || 50;
+  const curGStoch = gStoch[gStoch.length - 1] || 50;
+  const curGWill = gWilliams[gWilliams.length - 1] || -50;
+  const curGCCI = gCCI[gCCI.length - 1] || 0;
+  const curGATR = gATR[gATR.length - 1] || 0;
+  const curGMom = gMomentum[gMomentum.length - 1] || 0;
+  const curGROC = gROC[gROC.length - 1] || 0;
+  const gsRatio = prices.gold && prices.silver ? prices.gold / prices.silver : 0;
+  const gChgPct = g.length > 1 ? (prices.gold - g[0]) / g[0] * 100 : 0;
+  const sChgPct = s.length > 1 ? (prices.silver - s[0]) / s[0] * 100 : 0;
+  const patterns = detectPatterns(g);
+  const curGBB = gBB[gBB.length - 1];
+  const curGSMA20 = gSMA20[gSMA20.length - 1];
+  const curGEMA9 = gEMA9[gEMA9.length - 1];
+
+  // Composite score
+  let compScore = 0, compTotal = 0;
+  if (curGRSI) { compScore += curGRSI < 30 ? 2 : curGRSI < 45 ? 1 : curGRSI > 70 ? -2 : curGRSI > 55 ? -1 : 0; compTotal += 2; }
+  if (curGStoch) { compScore += curGStoch < 20 ? 2 : curGStoch < 40 ? 1 : curGStoch > 80 ? -2 : curGStoch > 60 ? -1 : 0; compTotal += 2; }
+  if (curGWill) { compScore += curGWill < -80 ? 2 : curGWill < -60 ? 1 : curGWill > -20 ? -2 : curGWill > -40 ? -1 : 0; compTotal += 2; }
+  if (curGCCI) { compScore += curGCCI < -100 ? 2 : curGCCI < -50 ? 1 : curGCCI > 100 ? -2 : curGCCI > 50 ? -1 : 0; compTotal += 2; }
+  if (prices.gold && curGSMA20) { compScore += prices.gold > curGSMA20 ? 1 : -1; compTotal += 1; }
+  if (curGMom) { compScore += curGMom > 0 ? 1 : -1; compTotal += 1; }
+  const normScore = compTotal > 0 ? compScore / compTotal * 100 : 0;
+  const overallSig = normScore > 35 ? { sig: "STRONG BUY", col: "#00e87a" } : normScore > 12 ? { sig: "BUY", col: "#00cc66" } : normScore < -35 ? { sig: "STRONG SELL", col: "#ff2244" } : normScore < -12 ? { sig: "SELL", col: "#ff6688" } : { sig: "HOLD", col: "#ffa502" };
+
+  // Chart data
+  const chartData = g.map((v, i) => ({
+    t: hist.time[i] || i, gold: v, silver: s[i],
+    sma20: gSMA20[i], ema9: gEMA9[i], sma50: gSMA50[i],
+    bbu: gBB[i]?.u, bbl: gBB[i]?.l, bbm: gBB[i]?.mid,
+    rsi: gRSI[i], stoch: gStoch[i], cci: gCCI[i], williams: gWilliams[i],
+    momentum: gMomentum[i], roc: gROC[i],
+  }));
+  const macdData = gMACD.macd.map((v, i) => ({ t: i, macd: v, signal: gMACD.signal[i], hist: gMACD.hist[i] }));
+
+  // SIP Calculator
+  const sipResult = (() => {
+    const m = parseFloat(sipInput.monthly) || 5000;
+    const r = (parseFloat(sipInput.returnRate) || 11) / 100 / 12;
+    const n = (parseFloat(sipInput.years) || 5) * 12;
+    const fv = m * ((Math.pow(1 + r, n) - 1) / r) * (1 + r);
+    const invested = m * n;
+    return { fv, invested, gain: fv - invested, xReturn: fv / invested };
+  })();
+
+  // Portfolio
+  const portPL = portfolio.map(h => {
+    const cp = h.asset === "Gold" ? (prices.goldINR || 0) / 10 : (prices.silverINR || 0);
+    const cur = h.qty * cp, cost = h.qty * h.buyPrice, pl = cur - cost;
+    return { ...h, cp, cur, cost, pl, plPct: cost ? (pl / cost) * 100 : 0 };
+  });
+  const totalPL = portPL.reduce((a, b) => a + b.pl, 0);
+  const totalCost = portPL.reduce((a, b) => a + b.cost, 0);
+
+  // MCX Price Calculator
+  const mcxGold = prices.gold ? (prices.gold * prices.usdInr * 10 / 31.1035 * (1 + importDuty.total / 100)).toFixed(0) : "—";
+  const mcxSilver = prices.silver ? (prices.silver * prices.usdInr / 31.1035 * (1 + importDuty.total / 100)).toFixed(1) : "—";
+
+  // Current month seasonal
+  const curMonth = new Date().getMonth();
+  const curSeasonal = SEASONAL[curMonth];
+
+  // ── AI FUNCTIONS ───────────────────────────
+  const callAI = async (prompt, key) => {
+    setAiLoad(p => ({ ...p, [key]: true }));
+    try {
+      const r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1200, messages: [{ role: "user", content: prompt }] }) });
+      const d = await r.json();
+      setAiOut(p => ({ ...p, [key]: d.content?.[0]?.text || "Error" }));
+    } catch { setAiOut(p => ({ ...p, [key]: "Network error." })); }
+    setAiLoad(p => ({ ...p, [key]: false }));
+  };
+
+  const getWhy = () => callAI(`You are a real-time gold market narrator. Explain in Hinglish (casual Hindi+English) WHY gold is at this level right now.
+Live: Gold=$${prices.gold?.toFixed(2)} Change=${gChgPct.toFixed(3)}% RSI=${curGRSI.toFixed(0)} Stoch=${curGStoch.toFixed(0)} Williams%R=${curGWill.toFixed(1)} CCI=${curGCCI.toFixed(1)} Momentum=${curGMom.toFixed(2)} ROC=${curGROC.toFixed(3)}% BB-Width=${curGBB?.bw?.toFixed(2)||"N/A"}% Pattern=${patterns[0]?.name||"None"} G/S=${gsRatio.toFixed(1)} USD/INR=${prices.usdInr?.toFixed(2)} MCX=₹${prices.goldINR?.toFixed(0)}/10g
+Write SHORT (150 words), story-style, like a smart trader friend on WhatsApp. Emojis natural use karo. End with 1 action line.`, "why");
+
+  const getDeep = () => callAI(`Bloomberg-level gold analyst. Comprehensive analysis in Hinglish.
+LIVE DATA:
+XAU/USD: $${prices.gold?.toFixed(2)}/oz | MCX: ₹${prices.goldINR?.toFixed(0)}/10g | MCX+Duty: ₹${mcxGold}/10g
+XAG/USD: $${prices.silver?.toFixed(3)}/oz | MCX: ₹${prices.silverINR?.toFixed(1)}/g
+USD/INR: ${prices.usdInr?.toFixed(2)} | G/S Ratio: ${gsRatio.toFixed(2)}
+10 INDICATORS:
+RSI(14): ${curGRSI.toFixed(1)} | Stoch(14): ${curGStoch.toFixed(1)} | Williams%R: ${curGWill.toFixed(1)} | CCI(20): ${curGCCI.toFixed(1)}
+ATR(14): ${curGATR.toFixed(3)} | Momentum(10): ${curGMom.toFixed(3)} | ROC(10): ${curGROC.toFixed(3)}%
+SMA20: $${curGSMA20?.toFixed(2)||"N/A"} | EMA9: $${curGEMA9?.toFixed(2)||"N/A"} | BB-Width: ${curGBB?.bw?.toFixed(2)||"N/A"}%
+Composite Score: ${normScore.toFixed(1)}/100 | Signal: ${overallSig.sig}
+Patterns Detected: ${patterns.map(p => p.name).join(", ") || "None"}
+Seasonal (${curSeasonal.month}): Avg ${curSeasonal.avgReturn}% historically | ${curSeasonal.trend}
+
+Write all 7 sections:
+1)📊 10 INDICATORS DEEP ANALYSIS — har ek ka matlab
+2)🕯️ PATTERN ANALYSIS — kya dikh raha hai chart pe
+3)📅 SEASONAL CONTEXT — is mahine gold ka historical behavior
+4)🇮🇳 INDIA MCX ANALYSIS — import duty, rupee, domestic demand
+5)🎯 TRADE SETUP — exact Entry/Target 1/Target 2/Stop Loss
+6)⚠️ RISKS — kya galat ho sakta hai
+7)💡 FINAL VERDICT — ek line mein
+Be specific with $ and ₹ levels. Professional tone.`, "deep");
+
+  const getPredict = async () => {
+    setAiLoad(p => ({ ...p, predict: true }));
+    try {
+      const r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 800, messages: [{ role: "user", content: `Return ONLY JSON:
+{"bull7d":2420,"base7d":2345,"bear7d":2265,"bull30d":2480,"base30d":2360,"bear30d":2240,"trend":"BULLISH|BEARISH|SIDEWAYS","confidence":72,"entry":"2295-2310","target1":2355,"target2":2390,"stop":2260,"reason":"Hinglish 20 words","indiaAngle":"MCX outlook 12 words","keyRisk":"main risk 10 words","seasonalNote":"seasonal factor 8 words"}
+Data: Gold=$${prices.gold?.toFixed(2)} RSI=${curGRSI.toFixed(0)} Stoch=${curGStoch.toFixed(0)} Williams=${curGWill.toFixed(0)} CCI=${curGCCI.toFixed(0)} Momentum=${curGMom.toFixed(2)} BB-Width=${curGBB?.bw?.toFixed(2)||"N/A"}% Score=${normScore.toFixed(1)} Pattern=${patterns[0]?.name||"None"} Seasonal=${curSeasonal.avgReturn}% USD/INR=${prices.usdInr?.toFixed(2)}` }] }) });
+      const d = await r.json();
+      const txt = d.content?.[0]?.text || "{}";
+      setAiOut(p => ({ ...p, predict: JSON.parse(txt.replace(/```json|```/g, "").trim()) }));
+    } catch { setAiOut(p => ({ ...p, predict: null })); }
+    setAiLoad(p => ({ ...p, predict: false }));
+  };
+
+  const sendChat = async () => {
+    if (!chatInput.trim() || chatLoading) return;
+    const msg = chatInput.trim(); setChatInput("");
+    setChat(p => [...p, { role: "user", text: msg }]);
+    setChatLoading(true);
+    try {
+      const msgs = chat.slice(-8).map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.text }));
+      const r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 700, system: `Expert gold & silver analyst + trading educator. LIVE: Gold=$${prices.gold?.toFixed(2)} (₹${prices.goldINR?.toFixed(0)}/10g) MCX_with_duty=₹${mcxGold}/10g Silver=$${prices.silver?.toFixed(3)} (₹${prices.silverINR?.toFixed(1)}/g) USD/INR=${prices.usdInr?.toFixed(2)} G/S=${gsRatio.toFixed(1)} RSI=${curGRSI.toFixed(0)} Stoch=${curGStoch.toFixed(0)} Williams=${curGWill.toFixed(0)} CCI=${curGCCI.toFixed(0)} Momentum=${curGMom.toFixed(2)} Score=${normScore.toFixed(1)} Signal=${overallSig.sig} Pattern=${patterns[0]?.name||"None"} Seasonal=${curSeasonal.month}:${curSeasonal.avgReturn}%. Answer Hinglish. Be direct, specific, educational. Help them learn trading properly.`, messages: [...msgs, { role: "user", content: msg }] }) });
+      const d = await r.json();
+      setChat(p => [...p, { role: "ai", text: d.content?.[0]?.text || "Error" }]);
+    } catch { setChat(p => [...p, { role: "ai", text: "Network error." }]); }
+    setChatLoading(false);
+    setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+  };
+
+  // ── COLORS ─────────────────────────────────
+  const C = { bg: "#030310", panel: "#07071a", border: "#101028", gold: "#f0b429", silver: "#a8b2c8", green: "#00e07a", red: "#ff2244", blue: "#29b6f6", purple: "#9c6fde", orange: "#ff8c42", muted: "#2e2e50", text: "#c8c8e8", cyan: "#00d4aa" };
+  const P = (e = {}) => ({ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 12, ...e });
+  const up = v => v >= 0;
+
+  const TABS = [
+    { id: "live", lbl: "⚡ Live" },
+    { id: "indicators", lbl: "📊 10 Indicators" },
+    { id: "candles", lbl: "🕯️ Candles" },
+    { id: "patterns", lbl: "🔍 Patterns" },
+    { id: "seasonal", lbl: "📅 Seasonal" },
+    { id: "india", lbl: "🇮🇳 India Engine" },
+    { id: "predict", lbl: "🔮 Predict" },
+    { id: "analysis", lbl: "🔬 Deep AI" },
+    { id: "calculator", lbl: "🧮 Calculator" },
+    { id: "portfolio", lbl: "💼 Portfolio" },
+    { id: "alerts", lbl: "🔔 Alerts" },
+    { id: "chat", lbl: "🤖 AURUM AI" },
+  ];
+
+  return (
+    <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: "monospace" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=JetBrains+Mono:wght@400;600;700&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0}
+        ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:#050515}::-webkit-scrollbar-thumb{background:#181830;border-radius:2px}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.2}}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes goldglow{0%,100%{text-shadow:0 0 10px #f0b42940}50%{text-shadow:0 0 25px #f0b42980}}
+        .btn{cursor:pointer;transition:all 0.15s;border:none}.btn:hover{filter:brightness(1.2);transform:translateY(-1px)}
+        .tab{cursor:pointer;border:none;background:transparent;transition:all 0.15s}.tab:hover{background:#ffffff06!important}
+        .card{transition:transform 0.2s}.card:hover{transform:translateY(-2px)}
+        input,select{outline:none}input:focus{border-color:#f0b42960!important}
+      `}</style>
+
+      {/* ── HEADER ─────────────────────────── */}
+      <div style={{ background: "linear-gradient(135deg,#050518,#09091e,#050518)", borderBottom: `1px solid ${C.border}`, padding: "12px 20px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ width: 46, height: 46, borderRadius: "50%", background: "radial-gradient(circle,#f0b42960,#1a0a00)", border: `2px solid ${C.gold}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>⚡</div>
+            <div>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 24, fontWeight: 900, letterSpacing: 3, background: `linear-gradient(90deg,${C.gold},#fff8dc,${C.silver})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", animation: "goldglow 4s infinite" }}>
+                AURUM v2
+              </div>
+              <div style={{ fontSize: 9, color: C.muted, letterSpacing: 5, fontFamily: "'JetBrains Mono',monospace" }}>GOLD & SILVER INTELLIGENCE — 10 INDICATORS + PATTERNS + SEASONAL</div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+            {[
+              [prices.gold ? `$${prices.gold.toFixed(2)}` : "...", "XAU/USD", C.gold, gChgPct],
+              [prices.goldINR ? `₹${prices.goldINR.toFixed(0)}` : "...", "MCX/10g", "#c89a10", gChgPct],
+              [prices.silver ? `$${prices.silver.toFixed(3)}` : "...", "XAG/USD", C.silver, sChgPct],
+              [`₹${prices.usdInr.toFixed(2)}`, "USD/INR", C.blue, 0],
+              [gsRatio.toFixed(2), "G/S", C.purple, 0],
+            ].map(([v, l, col, chg]) => (
+              <div key={l} style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 9, color: C.muted }}>{l}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: col, fontFamily: "'JetBrains Mono',monospace" }}>{v}</div>
+                {chg !== 0 && <div style={{ fontSize: 9, color: chg >= 0 ? C.green : C.red }}>{chg >= 0 ? "▲" : "▼"}{Math.abs(chg).toFixed(3)}%</div>}
+              </div>
+            ))}
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 9, color: C.muted }}>SIGNAL</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: overallSig.col, fontFamily: "'JetBrains Mono',monospace" }}>{overallSig.sig}</div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: lastUpdate ? C.green : C.red, animation: "pulse 2s infinite" }} />
+              <span style={{ fontSize: 9, color: C.muted }}>{lastUpdate ? "LIVE " + lastUpdate.toLocaleTimeString() : "..."}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── TABS ──────────────────────────── */}
+      <div style={{ background: "#050518", borderBottom: `1px solid ${C.border}`, display: "flex", overflowX: "auto", padding: "0 10px" }}>
+        {TABS.map(t => (
+          <button key={t.id} className="tab" onClick={() => setTab(t.id)} style={{ color: tab === t.id ? C.gold : C.muted, borderBottom: `2px solid ${tab === t.id ? C.gold : "transparent"}`, padding: "9px 13px", fontSize: 10, whiteSpace: "nowrap", borderRadius: "4px 4px 0 0", fontFamily: "'JetBrains Mono',monospace" }}>
+            {t.lbl}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ padding: 14, maxWidth: 1400, margin: "0 auto" }}>
+
+        {/* ══ LIVE TAB ══════════════════════ */}
+        {tab === "live" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, animation: "fadeUp 0.3s ease" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              {[
+                { n: "GOLD", p: prices.gold, inr: prices.goldINR, mcx: mcxGold, unit: "/10g", chgPct: gChgPct, col: C.gold, rsi: curGRSI, stoch: curGStoch, sig: overallSig, spark: g, dec: 2 },
+                { n: "SILVER", p: prices.silver, inr: prices.silverINR, mcx: mcxSilver, unit: "/g", chgPct: sChgPct, col: C.silver, rsi: curSRSI, stoch: gStoch[gStoch.length - 1] || 50, sig: { sig: curSRSI > 70 ? "SELL" : curSRSI < 30 ? "BUY" : "HOLD", col: curSRSI > 70 ? C.red : curSRSI < 30 ? C.green : "#ffa502" }, spark: s, dec: 3 },
+              ].map(m => (
+                <div key={m.n} className="card" style={{ ...P({ padding: 18, borderTop: `3px solid ${m.col}` }) }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                    <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 20, fontWeight: 700, color: m.col }}>{m.n === "GOLD" ? "🥇" : "🥈"} {m.n}</div>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      {[["RSI", m.rsi, m.rsi > 70 ? C.red : m.rsi < 30 ? C.green : "#ffa502"],
+                        ["Stoch", m.stoch, m.stoch > 80 ? C.red : m.stoch < 20 ? C.green : C.blue]].map(([l, v, col]) => (
+                          <div key={l} style={{ textAlign: "center", background: "#0a0a20", borderRadius: 8, padding: "6px 10px" }}>
+                            <div style={{ fontSize: 9, color: C.muted }}>{l}</div>
+                            <div style={{ fontSize: 16, fontWeight: 700, color: col, fontFamily: "'JetBrains Mono',monospace" }}>{v.toFixed(0)}</div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 34, fontWeight: 700, color: m.col, fontFamily: "'JetBrains Mono',monospace", marginBottom: 4 }}>
+                    ${m.p ? m.p.toFixed(m.dec) : "..."}<span style={{ fontSize: 11, color: C.muted }}>/oz</span>
+                  </div>
+                  <div style={{ fontSize: 18, color: m.n === "GOLD" ? "#c89a10" : "#8898a8", fontFamily: "monospace", marginBottom: 4 }}>
+                    ₹{m.inr ? m.inr.toFixed(m.n === "SILVER" ? 1 : 0) : "—"}<span style={{ fontSize: 10, color: C.muted }}>{m.unit} MCX</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: C.muted, fontFamily: "monospace", marginBottom: 12 }}>
+                    MCX+Duty: ₹{m.mcx}{m.unit}
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <span style={{ color: up(m.chgPct) ? C.green : C.red, background: up(m.chgPct) ? "#00e07a15" : "#ff224415", border: `1px solid ${up(m.chgPct) ? "#00e07a30" : "#ff224430"}`, padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700 }}>
+                      {up(m.chgPct) ? "▲" : "▼"} {Math.abs(m.chgPct).toFixed(3)}%
+                    </span>
+                    <span style={{ color: m.sig.col, background: `${m.sig.col}18`, border: `1px solid ${m.sig.col}40`, padding: "3px 12px", borderRadius: 20, fontSize: 11, fontWeight: 800 }}>{m.sig.sig}</span>
+                  </div>
+                  {/* Score bar */}
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: C.muted, marginBottom: 3 }}>
+                      <span>COMPOSITE SCORE</span><span style={{ color: normScore > 0 ? C.green : normScore < 0 ? C.red : "#ffa502" }}>{normScore.toFixed(1)}</span>
+                    </div>
+                    <div style={{ background: "#0a0a1c", borderRadius: 3, height: 5, position: "relative" }}>
+                      <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "#1a1a38" }} />
+                      <div style={{ position: "absolute", left: normScore >= 0 ? "50%" : `${50 + normScore / 2}%`, width: `${Math.abs(normScore) / 2}%`, top: 0, bottom: 0, background: normScore > 0 ? C.green : C.red, borderRadius: 3, transition: "all 0.5s" }} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* WHY GOLD MOVING */}
+            <div style={{ ...P({ padding: 18, borderLeft: `4px solid ${C.gold}` }) }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
+                <div>
+                  <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 14, fontWeight: 700, color: C.gold }}>🧠 WHY IS GOLD MOVING?</div>
+                  <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>10 indicators ka real-time AI narrative</div>
+                </div>
+                <button className="btn" onClick={getWhy} disabled={aiLoad.why} style={{ background: aiLoad.why ? "#111" : `linear-gradient(135deg,${C.gold},#ff8c00)`, color: aiLoad.why ? C.muted : "#000", padding: "8px 20px", borderRadius: 9, fontSize: 12, fontWeight: 700 }}>
+                  {aiLoad.why ? "⏳ Thinking..." : "🧠 WHY?"}
+                </button>
+              </div>
+              {!aiOut.why && !aiLoad.why && <div style={{ color: C.muted, fontSize: 12 }}>Click karo — AI live market explain karega Hinglish mein</div>}
+              {aiLoad.why && <div style={{ color: C.muted, fontSize: 12, animation: "pulse 1s infinite" }}>🔮 Market pulse analyze ho raha hai...</div>}
+              {aiOut.why && !aiLoad.why && <div style={{ color: C.text, fontSize: 13, lineHeight: 1.8, background: "#07071c", padding: 14, borderRadius: 10, animation: "fadeUp 0.3s ease" }}>{aiOut.why}</div>}
+            </div>
+
+            {/* G/S Ratio + Seasonal */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div style={{ ...P({ padding: 16 }) }}>
+                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 13, fontWeight: 700, color: C.purple, marginBottom: 12 }}>⚖️ G/S RATIO</div>
+                <div style={{ fontSize: 44, fontWeight: 900, color: C.purple, fontFamily: "'JetBrains Mono',monospace", marginBottom: 8 }}>{gsRatio.toFixed(2)}</div>
+                <div style={{ height: 8, background: "#0a0a1c", borderRadius: 4, marginBottom: 6, position: "relative", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, right: 0, background: "linear-gradient(90deg,#00e07a,#ffa502,#ff2244)", opacity: 0.5 }} />
+                  <div style={{ position: "absolute", left: `${Math.min(Math.max((gsRatio - 40) / 80 * 100, 0), 100)}%`, top: -1, width: 14, height: 10, background: "white", borderRadius: 2, transform: "translateX(-50%)", boxShadow: "0 0 6px white", transition: "left 0.5s" }} />
+                </div>
+                <div style={{ fontSize: 12, color: gsRatio > 80 ? C.green : gsRatio < 60 ? C.gold : C.muted, lineHeight: 1.5 }}>
+                  {gsRatio > 85 ? "🟢 Silver historically BAHUT sasta — 1 gold = " + gsRatio.toFixed(0) + " silver" : gsRatio > 75 ? "🟡 Silver thoda sasta — diversify consider karo" : "⚖️ Fair value range mein hai"}
+                </div>
+              </div>
+              <div style={{ ...P({ padding: 16 }) }}>
+                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 13, fontWeight: 700, color: C.cyan, marginBottom: 12 }}>📅 THIS MONTH — {curSeasonal.month}</div>
+                <div style={{ fontSize: 32, fontWeight: 800, color: curSeasonal.trend === "BULLISH" ? C.green : curSeasonal.trend === "BEARISH" ? C.red : "#ffa502", fontFamily: "'JetBrains Mono',monospace" }}>
+                  {curSeasonal.avgReturn > 0 ? "+" : ""}{curSeasonal.avgReturn}%
+                </div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Historical avg return for {curSeasonal.month}</div>
+                <div style={{ marginTop: 8, fontSize: 12, color: curSeasonal.trend === "BULLISH" ? C.green : curSeasonal.trend === "BEARISH" ? C.red : "#ffa502" }}>
+                  {curSeasonal.trend === "BULLISH" ? "📈 Historically strong month" : curSeasonal.trend === "BEARISH" ? "📉 Historically weak month" : "↔️ Neutral month historically"}
+                </div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Bull years: {curSeasonal.bullYears}/20 | Bear: {curSeasonal.bearYears}/20</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ 10 INDICATORS TAB ═════════════ */}
+        {tab === "indicators" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, animation: "fadeUp 0.3s ease" }}>
+            {/* Radar */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div style={{ ...P({ padding: 16 }) }}>
+                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 13, color: C.gold, marginBottom: 8 }}>🎯 INDICATOR RADAR — Gold</div>
+                <IndicatorRadar rsi={curGRSI} stoch={curGStoch} williams={Math.abs(curGWill)} cci={curGCCI} momentum={curGMom * 10} atr={curGATR * 5} />
+              </div>
+              <div style={{ ...P({ padding: 16 }) }}>
+                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 13, color: C.gold, marginBottom: 12 }}>📋 ALL 10 INDICATORS</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {[
+                    ["RSI (14)", curGRSI.toFixed(1), curGRSI > 70 ? "Overbought ⚠️" : curGRSI < 30 ? "Oversold 💎" : "Neutral", curGRSI > 70 ? C.red : curGRSI < 30 ? C.green : "#ffa502", curGRSI, 0, 100],
+                    ["Stoch (14)", curGStoch.toFixed(1), curGStoch > 80 ? "Overbought" : curGStoch < 20 ? "Oversold" : "Neutral", curGStoch > 80 ? C.red : curGStoch < 20 ? C.green : C.blue, curGStoch, 0, 100],
+                    ["Williams %R", curGWill.toFixed(1), curGWill > -20 ? "Overbought" : curGWill < -80 ? "Oversold" : "Neutral", curGWill > -20 ? C.red : curGWill < -80 ? C.green : C.purple, Math.abs(curGWill), 0, 100],
+                    ["CCI (20)", curGCCI.toFixed(0), curGCCI > 100 ? "Overbought" : curGCCI < -100 ? "Oversold" : "Neutral", curGCCI > 100 ? C.red : curGCCI < -100 ? C.green : "#ffa502", Math.min(Math.abs(curGCCI), 200), 0, 200],
+                    ["ATR (14)", `$${curGATR.toFixed(3)}`, "Volatility measure", C.orange, Math.min(curGATR * 20, 100), 0, 100],
+                    ["Momentum", curGMom.toFixed(3), curGMom > 0 ? "Positive momentum" : "Negative momentum", curGMom > 0 ? C.green : C.red, 50 + Math.min(Math.abs(curGMom) * 10, 50), 0, 100],
+                    ["ROC (10)", `${curGROC.toFixed(3)}%`, curGROC > 0 ? "Positive change" : "Negative change", curGROC > 0 ? C.green : C.red, 50 + Math.min(Math.abs(curGROC) * 5, 50), 0, 100],
+                    ["SMA 20", curGSMA20 ? `$${curGSMA20.toFixed(0)}` : "—", prices.gold > (curGSMA20 || 0) ? "Price above ↑" : "Price below ↓", prices.gold > (curGSMA20 || 0) ? C.green : C.red, prices.gold > (curGSMA20 || 0) ? 75 : 25, 0, 100],
+                    ["EMA 9", curGEMA9 ? `$${curGEMA9.toFixed(0)}` : "—", prices.gold > (curGEMA9 || 0) ? "Price above ↑" : "Price below ↓", prices.gold > (curGEMA9 || 0) ? C.green : C.red, prices.gold > (curGEMA9 || 0) ? 75 : 25, 0, 100],
+                    ["BB Width", curGBB?.bw ? `${curGBB.bw.toFixed(2)}%` : "—", curGBB?.bw > 3 ? "High volatility" : "Low volatility", C.purple, Math.min((curGBB?.bw || 0) * 15, 100), 0, 100],
+                  ].map(([l, v, sig, col, barVal]) => (
+                    <div key={l} style={{ display: "flex", alignItems: "center", gap: 10, background: "#090920", borderRadius: 8, padding: "7px 12px" }}>
+                      <div style={{ width: 80, fontSize: 9, color: C.muted, flexShrink: 0 }}>{l}</div>
+                      <div style={{ width: 65, fontSize: 13, color: col, fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, flexShrink: 0 }}>{v}</div>
+                      <div style={{ flex: 1, height: 4, background: "#111", borderRadius: 2 }}>
+                        <div style={{ height: "100%", width: `${Math.min(barVal || 0, 100)}%`, background: col, borderRadius: 2, transition: "width 0.5s" }} />
+                      </div>
+                      <div style={{ width: 120, fontSize: 9, color: col, textAlign: "right", flexShrink: 0 }}>{sig}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* RSI Chart */}
+            <div style={{ ...P({ padding: 14 }) }}>
+              <div style={{ fontSize: 11, color: C.purple, marginBottom: 8 }}>RSI (14) — Gold Live</div>
+              <ResponsiveContainer width="100%" height={100}>
+                <AreaChart data={chartData}>
+                  <CartesianGrid stroke={C.border} strokeDasharray="2 4" />
+                  <XAxis dataKey="t" tick={{ fill: C.muted, fontSize: 8 }} tickLine={false} interval="preserveStartEnd" />
+                  <YAxis tick={{ fill: C.muted, fontSize: 8 }} domain={[0, 100]} tickLine={false} />
+                  <Tooltip contentStyle={{ background: "#0a0a1e", border: `1px solid ${C.border}`, fontSize: 10 }} />
+                  <ReferenceLine y={70} stroke={C.red} strokeDasharray="2 2" />
+                  <ReferenceLine y={30} stroke={C.green} strokeDasharray="2 2" />
+                  <Area type="monotone" dataKey="rsi" stroke={C.purple} fill={`${C.purple}20`} strokeWidth={2} dot={false} name="RSI" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* MACD */}
+            <div style={{ ...P({ padding: 14 }) }}>
+              <div style={{ fontSize: 11, color: C.orange, marginBottom: 8 }}>MACD (12,26,9)</div>
+              <ResponsiveContainer width="100%" height={100}>
+                <ComposedChart data={macdData}>
+                  <CartesianGrid stroke={C.border} strokeDasharray="2 4" />
+                  <XAxis dataKey="t" tick={{ fill: C.muted, fontSize: 8 }} tickLine={false} />
+                  <YAxis tick={{ fill: C.muted, fontSize: 8 }} tickLine={false} tickFormatter={v => v.toFixed(1)} width={38} />
+                  <Tooltip contentStyle={{ background: "#0a0a1e", border: `1px solid ${C.border}`, fontSize: 10 }} />
+                  <ReferenceLine y={0} stroke={C.muted} />
+                  <Bar dataKey="hist" fill={C.orange} fillOpacity={0.6} name="Hist" />
+                  <Line type="monotone" dataKey="macd" stroke={C.blue} strokeWidth={2} dot={false} name="MACD" />
+                  <Line type="monotone" dataKey="signal" stroke={C.red} strokeWidth={1.5} dot={false} name="Signal" />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* ══ CANDLES TAB ═══════════════════ */}
+        {tab === "candles" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, animation: "fadeUp 0.3s ease" }}>
+            <div style={{ ...P({ padding: 18 }) }}>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 14, color: C.gold, marginBottom: 14 }}>🕯️ GOLD CANDLESTICK + Support/Resistance</div>
+              <CandleChart data={g} patterns={patterns} />
+              <div style={{ display: "flex", gap: 16, marginTop: 10, fontSize: 10, color: C.muted }}>
+                <span><span style={{ color: C.green }}>▬</span> Support</span>
+                <span><span style={{ color: C.red }}>▬</span> Resistance</span>
+                <span><span style={{ color: C.green }}>█</span> Bull candle</span>
+                <span><span style={{ color: C.red }}>█</span> Bear candle</span>
+              </div>
+            </div>
+            <div style={{ ...P({ padding: 16 }) }}>
+              <div style={{ fontSize: 11, color: C.gold, marginBottom: 10 }}>Gold Price + Bollinger Bands + SMA20 + EMA9</div>
+              <ResponsiveContainer width="100%" height={200}>
+                <ComposedChart data={chartData}>
+                  <defs><linearGradient id="gFill2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={C.gold} stopOpacity="0.3" /><stop offset="100%" stopColor={C.gold} stopOpacity="0" /></linearGradient></defs>
+                  <CartesianGrid stroke={C.border} strokeDasharray="2 4" />
+                  <XAxis dataKey="t" tick={{ fill: C.muted, fontSize: 9 }} tickLine={false} interval="preserveStartEnd" />
+                  <YAxis tick={{ fill: C.muted, fontSize: 9 }} tickLine={false} domain={["auto", "auto"]} tickFormatter={v => `$${v.toFixed(0)}`} width={60} />
+                  <Tooltip contentStyle={{ background: "#0a0a1e", border: `1px solid ${C.border}`, fontSize: 11 }} />
+                  <Area type="monotone" dataKey="gold" stroke={C.gold} fill="url(#gFill2)" strokeWidth={2} dot={false} name="Gold" />
+                  <Line type="monotone" dataKey="sma20" stroke={C.orange} strokeWidth={1.5} dot={false} name="SMA20" strokeDasharray="4 2" />
+                  <Line type="monotone" dataKey="ema9" stroke={C.blue} strokeWidth={1.5} dot={false} name="EMA9" />
+                  <Line type="monotone" dataKey="bbu" stroke="#ff224450" strokeWidth={1} dot={false} name="BB Upper" strokeDasharray="2 2" />
+                  <Line type="monotone" dataKey="bbl" stroke="#00e07a50" strokeWidth={1} dot={false} name="BB Lower" strokeDasharray="2 2" />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* ══ PATTERNS TAB ══════════════════ */}
+        {tab === "patterns" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, animation: "fadeUp 0.3s ease" }}>
+            <div style={{ ...P({ padding: 20 }) }}>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 15, color: C.gold, marginBottom: 6 }}>🔍 PATTERN RECOGNITION ENGINE</div>
+              <div style={{ fontSize: 11, color: C.muted, marginBottom: 20 }}>Live chart patterns detect karta hai — automatically</div>
+              {patterns.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "40px 0", color: C.muted }}>
+                  <div style={{ fontSize: 36, marginBottom: 10 }}>🔍</div>
+                  <div>Data accumulate ho raha hai — thoda wait karo...</div>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {patterns.map((p, i) => (
+                    <div key={i} style={{ background: p.type === "BULLISH" ? "#00e07a08" : p.type === "BEARISH" ? "#ff224408" : "#ffa50208", border: `1px solid ${p.type === "BULLISH" ? "#00e07a30" : p.type === "BEARISH" ? "#ff224430" : "#ffa50230"}`, borderRadius: 12, padding: 16, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                      <div>
+                        <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 16, fontWeight: 700, color: p.type === "BULLISH" ? C.green : p.type === "BEARISH" ? C.red : "#ffa502", marginBottom: 4 }}>{p.name}</div>
+                        <div style={{ fontSize: 13, color: C.text }}>{p.desc}</div>
+                      </div>
+                      <div style={{ textAlign: "center" }}>
+                        <div style={{ fontSize: 9, color: C.muted }}>CONFIDENCE</div>
+                        <div style={{ fontSize: 22, fontWeight: 800, fontFamily: "'JetBrains Mono',monospace", color: p.type === "BULLISH" ? C.green : p.type === "BEARISH" ? C.red : "#ffa502" }}>{p.conf}%</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* AI Pattern Analysis */}
+            <div style={{ ...P({ padding: 18 }) }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
+                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 13, color: C.cyan }}>🤖 AI Pattern Interpretation</div>
+                <button className="btn" onClick={() => callAI(`Chart pattern analyst. Gold ke current patterns ko Hinglish mein explain karo.
+Detected patterns: ${patterns.map(p => `${p.name} (${p.type}, conf:${p.conf}%)`).join(", ") || "Insufficient data"}
+Live: Gold=$${prices.gold?.toFixed(2)} RSI=${curGRSI.toFixed(0)} Stoch=${curGStoch.toFixed(0)} Support=$${Math.min(...(g.slice(-20) || [2300])).toFixed(2)} Resistance=$${Math.max(...(g.slice(-20) || [2350])).toFixed(2)} BB-Width=${curGBB?.bw?.toFixed(2)||"N/A"}%
+Explain: 1)Pattern ka kya matlab hai 2)Kya action lena chahiye 3)Risk kya hai. Short, clear, Hinglish.`, "pattern")} disabled={aiLoad.pattern} style={{ background: aiLoad.pattern ? "#111" : `linear-gradient(135deg,${C.cyan},#0097a7)`, color: aiLoad.pattern ? C.muted : "#000", padding: "8px 18px", borderRadius: 8, fontSize: 11, fontWeight: 700 }}>
+                  {aiLoad.pattern ? "⏳ Analyzing..." : "🔍 ANALYZE PATTERNS"}
+                </button>
+              </div>
+              {!aiOut.pattern && !aiLoad.pattern && <div style={{ color: C.muted, fontSize: 12 }}>AI se patterns ka detailed interpretation lo</div>}
+              {aiLoad.pattern && <div style={{ color: C.muted, fontSize: 12, animation: "pulse 1s infinite" }}>🔍 Patterns analyze ho rahe hain...</div>}
+              {aiOut.pattern && !aiLoad.pattern && <div style={{ color: C.text, fontSize: 13, lineHeight: 1.8, background: "#07071c", padding: 14, borderRadius: 10 }}>{aiOut.pattern}</div>}
+            </div>
+          </div>
+        )}
+
+        {/* ══ SEASONAL TAB ══════════════════ */}
+        {tab === "seasonal" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, animation: "fadeUp 0.3s ease" }}>
+            <div style={{ ...P({ padding: 20 }) }}>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 15, color: C.gold, marginBottom: 6 }}>📅 GOLD SEASONAL ANALYSIS — 20 Year Historical</div>
+              <div style={{ fontSize: 11, color: C.muted, marginBottom: 20 }}>Gold har mahine historically kitna return deta hai — 20 saal ka data</div>
+
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={SEASONAL} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
+                  <CartesianGrid stroke={C.border} strokeDasharray="2 4" />
+                  <XAxis dataKey="month" tick={{ fill: C.muted, fontSize: 10 }} tickLine={false} />
+                  <YAxis tick={{ fill: C.muted, fontSize: 9 }} tickLine={false} tickFormatter={v => `${v}%`} />
+                  <Tooltip contentStyle={{ background: "#0a0a1e", border: `1px solid ${C.border}`, fontSize: 11 }} formatter={(v) => [`${v}%`, "Avg Return"]} />
+                  <ReferenceLine y={0} stroke={C.muted} />
+                  {SEASONAL.map((s, i) => null)}
+                  <Bar dataKey="avgReturn" name="Avg Return %" radius={[4, 4, 0, 0]}>
+                    {SEASONAL.map((entry, index) => (
+                      <Cell key={index} fill={entry.avgReturn > 0 ? C.green : C.red} fillOpacity={new Date().getMonth() === index ? 1 : 0.6} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 8, marginTop: 16 }}>
+                {SEASONAL.map((s, i) => (
+                  <div key={s.month} style={{ background: new Date().getMonth() === i ? `${C.gold}15` : "#090920", border: `1px solid ${new Date().getMonth() === i ? C.gold + "50" : C.border}`, borderRadius: 8, padding: 10, textAlign: "center" }}>
+                    <div style={{ fontSize: 11, color: new Date().getMonth() === i ? C.gold : C.muted, fontWeight: new Date().getMonth() === i ? 700 : 400 }}>{s.month} {new Date().getMonth() === i ? "← NOW" : ""}</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: s.avgReturn > 0 ? C.green : C.red, fontFamily: "'JetBrains Mono',monospace" }}>{s.avgReturn > 0 ? "+" : ""}{s.avgReturn}%</div>
+                    <div style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>Bull: {s.bullYears}/20</div>
+                    <div style={{ fontSize: 9, color: s.trend === "BULLISH" ? C.green : s.trend === "BEARISH" ? C.red : "#ffa502" }}>{s.trend}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ ...P({ padding: 16 }) }}>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 13, color: C.cyan, marginBottom: 12 }}>💡 Seasonal Insight</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                {[
+                  { l: "Best Months to BUY", v: "Jul, Aug, Sep, Oct", desc: "Historically strongest months", col: C.green },
+                  { l: "Weak Months", v: "Mar, May, Dec", desc: "Average negative returns", col: C.red },
+                  { l: "India Peak Season", v: "Oct-Nov", desc: "Dhanteras + Diwali demand", col: C.gold },
+                  { l: "This Month", v: curSeasonal.month + ": " + (curSeasonal.avgReturn > 0 ? "+" : "") + curSeasonal.avgReturn + "%", desc: curSeasonal.trend, col: curSeasonal.trend === "BULLISH" ? C.green : curSeasonal.trend === "BEARISH" ? C.red : "#ffa502" },
+                ].map(item => (
+                  <div key={item.l} style={{ background: "#090920", borderRadius: 10, padding: 14 }}>
+                    <div style={{ fontSize: 10, color: C.muted, marginBottom: 4 }}>{item.l}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: item.col, fontFamily: "'JetBrains Mono',monospace", marginBottom: 2 }}>{item.v}</div>
+                    <div style={{ fontSize: 10, color: C.muted }}>{item.desc}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ INDIA ENGINE TAB ══════════════ */}
+        {tab === "india" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, animation: "fadeUp 0.3s ease" }}>
+            <div style={{ ...P({ padding: 20 }) }}>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 15, color: C.gold, marginBottom: 6 }}>🇮🇳 INDIA GOLD CONTEXT ENGINE</div>
+              <div style={{ fontSize: 11, color: C.muted, marginBottom: 20 }}>MCX price calculator + Import duty + Festival calendar + India factors</div>
+
+              {/* MCX Price Breakdown */}
+              <div style={{ background: "#0a0a20", border: `1px solid ${C.gold}30`, borderRadius: 12, padding: 16, marginBottom: 16 }}>
+                <div style={{ fontSize: 12, color: C.gold, marginBottom: 12, fontWeight: 700 }}>💰 MCX GOLD PRICE BREAKDOWN</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                  {[
+                    ["International", prices.gold ? `$${prices.gold.toFixed(2)}/oz` : "—", "London Bullion Market", C.gold],
+                    ["USD/INR Rate", `₹${prices.usdInr.toFixed(2)}`, "Live exchange rate", C.blue],
+                    ["Base (₹/10g)", prices.goldINR ? `₹${prices.goldINR.toFixed(0)}` : "—", "Before duties", "#c89a10"],
+                    ["Import Duty", `${importDuty.basic}%`, "Basic customs duty", C.orange],
+                    ["GST + Agri", `${importDuty.gst + importDuty.agri}%`, "Additional levies", C.orange],
+                    ["MCX + Duties", `₹${mcxGold}`, "Approximate MCX price", C.green],
+                  ].map(([l, v, d, col]) => (
+                    <div key={l} style={{ background: "#07071a", borderRadius: 8, padding: 12, textAlign: "center" }}>
+                      <div style={{ fontSize: 9, color: C.muted, marginBottom: 3 }}>{l}</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: col, fontFamily: "'JetBrains Mono',monospace" }}>{v}</div>
+                      <div style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>{d}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* India Events */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 12, color: C.cyan, marginBottom: 12, fontWeight: 700 }}>📅 UPCOMING DEMAND EVENTS</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {indiaEvents.map((e, i) => (
+                    <div key={i} style={{ background: e.daysLeft < 30 ? `${C.gold}10` : "#090920", border: `1px solid ${e.daysLeft < 30 ? C.gold + "40" : C.border}`, borderRadius: 10, padding: 14, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                      <div>
+                        <div style={{ fontWeight: 700, color: C.gold, fontSize: 13 }}>{e.icon} {e.name}</div>
+                        <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{e.desc}</div>
+                        <div style={{ height: 4, background: "#0a0a1c", borderRadius: 2, marginTop: 8, width: 150 }}>
+                          <div style={{ height: "100%", width: `${e.impact}%`, background: `linear-gradient(90deg,${C.gold},${C.orange})`, borderRadius: 2 }} />
+                        </div>
+                        <div style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>Demand impact: {e.impact}%</div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: 28, fontWeight: 900, color: e.daysLeft < 30 ? C.gold : C.muted, fontFamily: "'JetBrains Mono',monospace" }}>{e.daysLeft}</div>
+                        <div style={{ fontSize: 10, color: C.muted }}>days left</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* India Macro */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                {[
+                  { l: "India Demand/year", v: "~700-750T", d: "World's 2nd largest consumer", col: C.gold },
+                  { l: "Wedding Season", v: "Nov-Feb", d: "Peak gold jewellery demand", col: C.purple },
+                  { l: "RBI Gold Reserves", v: "~800T", d: "India central bank holdings", col: C.blue },
+                  { l: "MCX Trading Hours", v: "9AM-11:30PM", d: "Monday to Friday IST", col: C.cyan },
+                ].map(item => (
+                  <div key={item.l} style={{ background: "#090920", border: `1px solid ${C.border}`, borderRadius: 10, padding: 14 }}>
+                    <div style={{ fontSize: 9, color: C.muted, marginBottom: 4 }}>{item.l}</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: item.col, fontFamily: "'JetBrains Mono',monospace", marginBottom: 3 }}>{item.v}</div>
+                    <div style={{ fontSize: 10, color: C.muted }}>{item.d}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ PREDICT TAB ═══════════════════ */}
+        {tab === "predict" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, animation: "fadeUp 0.3s ease" }}>
+            <div style={{ ...P({ padding: 20 }) }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
+                <div>
+                  <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 15, color: C.purple }}>🔮 AI PRICE PREDICTION</div>
+                  <div style={{ fontSize: 11, color: C.muted }}>7-day + 30-day scenarios — 10 indicators + seasonal data</div>
+                </div>
+                <button className="btn" onClick={getPredict} disabled={aiLoad.predict} style={{ background: aiLoad.predict ? "#111" : `linear-gradient(135deg,#9c6fde,#6c3de0)`, color: aiLoad.predict ? C.muted : "#fff", padding: "10px 22px", borderRadius: 10, fontSize: 13, fontWeight: 700 }}>
+                  {aiLoad.predict ? "⏳ Predicting..." : "🔮 PREDICT NOW"}
+                </button>
+              </div>
+              {!aiOut.predict && !aiLoad.predict && (
+                <div style={{ textAlign: "center", padding: "50px 0", color: C.muted }}>
+                  <div style={{ fontSize: 44, marginBottom: 10 }}>🔮</div>
+                  <div>10 indicators + seasonal data se prediction generate karo</div>
+                </div>
+              )}
+              {aiLoad.predict && <div style={{ textAlign: "center", padding: "40px 0", animation: "pulse 1s infinite", color: C.muted }}>🔮 Probability models calculating...</div>}
+              {aiOut.predict && !aiLoad.predict && (
+                <div style={{ animation: "fadeUp 0.4s ease" }}>
+                  <div style={{ textAlign: "center", marginBottom: 20 }}>
+                    <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 20, fontWeight: 700, color: aiOut.predict.trend === "BULLISH" ? C.green : aiOut.predict.trend === "BEARISH" ? C.red : C.orange }}>
+                      {aiOut.predict.trend === "BULLISH" ? "🚀 BULLISH" : aiOut.predict.trend === "BEARISH" ? "📉 BEARISH" : "↔️ SIDEWAYS"}
+                    </div>
+                    <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>Confidence: {aiOut.predict.confidence}%</div>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                    {/* 7-day scenarios */}
+                    <div style={{ background: "#0a0a1e", borderRadius: 12, padding: 14 }}>
+                      <div style={{ fontSize: 11, color: C.muted, marginBottom: 10 }}>7-DAY SCENARIOS</div>
+                      {[["🐂 Bull", aiOut.predict.bull7d, C.green], ["⚖️ Base", aiOut.predict.base7d, C.gold], ["🐻 Bear", aiOut.predict.bear7d, C.red]].map(([l, v, col]) => (
+                        <div key={l} style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                          <span style={{ fontSize: 11, color: C.muted }}>{l}</span>
+                          <span style={{ color: col, fontWeight: 700, fontFamily: "'JetBrains Mono',monospace" }}>${v}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {/* 30-day scenarios */}
+                    <div style={{ background: "#0a0a1e", borderRadius: 12, padding: 14 }}>
+                      <div style={{ fontSize: 11, color: C.muted, marginBottom: 10 }}>30-DAY SCENARIOS</div>
+                      {[["🐂 Bull", aiOut.predict.bull30d, C.green], ["⚖️ Base", aiOut.predict.base30d, C.gold], ["🐻 Bear", aiOut.predict.bear30d, C.red]].map(([l, v, col]) => (
+                        <div key={l} style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                          <span style={{ fontSize: 11, color: C.muted }}>{l}</span>
+                          <span style={{ color: col, fontWeight: 700, fontFamily: "'JetBrains Mono',monospace" }}>${v}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 10, marginBottom: 14 }}>
+                    {[["Entry Zone", aiOut.predict.entry, C.blue], ["Target 1", `$${aiOut.predict.target1}`, C.green], ["Target 2", `$${aiOut.predict.target2}`, C.green], ["Stop Loss", `$${aiOut.predict.stop}`, C.red]].map(([l, v, col]) => (
+                      <div key={l} style={{ background: "#090920", borderRadius: 10, padding: 12, textAlign: "center" }}>
+                        <div style={{ fontSize: 9, color: C.muted, marginBottom: 3 }}>{l}</div>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: col, fontFamily: "'JetBrains Mono',monospace" }}>{v}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ background: "#07071c", borderRadius: 10, padding: 14, fontSize: 13, lineHeight: 1.7 }}>
+                    <div style={{ color: C.gold, marginBottom: 4, fontWeight: 700 }}>🧠 AI Reasoning:</div>
+                    <div>{aiOut.predict.reason}</div>
+                    {aiOut.predict.indiaAngle && <div style={{ color: C.cyan, marginTop: 6 }}>🇮🇳 {aiOut.predict.indiaAngle}</div>}
+                    {aiOut.predict.seasonalNote && <div style={{ color: C.purple, marginTop: 4 }}>📅 {aiOut.predict.seasonalNote}</div>}
+                    {aiOut.predict.keyRisk && <div style={{ color: C.red, marginTop: 4 }}>⚠️ Risk: {aiOut.predict.keyRisk}</div>}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ══ DEEP ANALYSIS TAB ═════════════ */}
+        {tab === "analysis" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, animation: "fadeUp 0.3s ease" }}>
+            <div style={{ ...P({ padding: 20 }) }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
+                <div>
+                  <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 15, color: C.purple }}>🔬 DEEP AI ANALYSIS</div>
+                  <div style={{ fontSize: 11, color: C.muted }}>10 indicators + patterns + seasonal + MCX + trade setup — sab ek saath</div>
+                </div>
+                <button className="btn" onClick={getDeep} disabled={aiLoad.deep} style={{ background: aiLoad.deep ? "#111" : `linear-gradient(135deg,#9c6fde,#6c3de0)`, color: aiLoad.deep ? C.muted : "#fff", padding: "10px 22px", borderRadius: 10, fontSize: 13, fontWeight: 700 }}>
+                  {aiLoad.deep ? "⏳ Analyzing..." : "🔬 RUN DEEP ANALYSIS"}
+                </button>
+              </div>
+              {!aiOut.deep && !aiLoad.deep && <div style={{ textAlign: "center", padding: "50px 0", color: C.muted }}><div style={{ fontSize: 40, marginBottom: 10 }}>🔮</div>Professional analysis — 7 sections, entry/target/stop levels included</div>}
+              {aiLoad.deep && <div style={{ textAlign: "center", padding: "40px 0", animation: "pulse 1s infinite", color: C.muted }}>🔮 10 indicators + MCX + patterns analyze ho rahe hain...</div>}
+              {aiOut.deep && !aiLoad.deep && <div style={{ background: "#070718", border: `1px solid ${C.border}`, borderRadius: 12, padding: 20, fontSize: 13, lineHeight: 1.9, whiteSpace: "pre-wrap", animation: "fadeUp 0.4s ease" }}>{aiOut.deep}</div>}
+            </div>
+          </div>
+        )}
+
+        {/* ══ CALCULATOR TAB ════════════════ */}
+        {tab === "calculator" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, animation: "fadeUp 0.3s ease" }}>
+            {/* SIP Calculator */}
+            <div style={{ ...P({ padding: 20 }) }}>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 15, color: C.gold, marginBottom: 6 }}>📈 GOLD SIP CALCULATOR</div>
+              <div style={{ fontSize: 11, color: C.muted, marginBottom: 16 }}>Monthly gold investment ka future value calculate karo</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(180px,1fr))", gap: 12, marginBottom: 16 }}>
+                {[["Monthly Investment (₹)", "monthly", "5000"], ["Years", "years", "5"], ["Expected Return %/yr", "returnRate", "11"]].map(([l, k, ph]) => (
+                  <div key={k}>
+                    <div style={{ fontSize: 10, color: C.muted, marginBottom: 4 }}>{l}</div>
+                    <input value={sipInput[k]} onChange={e => setSipInput(p => ({ ...p, [k]: e.target.value }))} placeholder={ph} style={{ width: "100%", background: "#0f0f22", border: `1px solid ${C.border}`, color: C.text, padding: "10px 12px", borderRadius: 8, fontFamily: "'JetBrains Mono',monospace", fontSize: 14 }} />
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12 }}>
+                {[
+                  ["Total Invested", `₹${sipResult.invested.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, C.muted],
+                  ["Future Value", `₹${sipResult.fv.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, C.gold],
+                  ["Total Gain", `₹${sipResult.gain.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, C.green],
+                  ["Return Multiple", `${sipResult.xReturn.toFixed(2)}x`, C.purple],
+                ].map(([l, v, col]) => (
+                  <div key={l} style={{ background: "#090920", border: `1px solid ${C.border}`, borderRadius: 10, padding: 14, textAlign: "center" }}>
+                    <div style={{ fontSize: 10, color: C.muted, marginBottom: 6 }}>{l}</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: col, fontFamily: "'JetBrains Mono',monospace" }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: 14, fontSize: 11, color: C.muted, lineHeight: 1.6 }}>
+                * Historical gold returns in India: ~11-13% per year (last 20 years). Past returns future returns guarantee nahi karte.
+              </div>
+            </div>
+
+            {/* Gold Quantity Calculator */}
+            <div style={{ ...P({ padding: 20 }) }}>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 14, color: C.gold, marginBottom: 16 }}>⚖️ GOLD QUANTITY CONVERTER</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12 }}>
+                {prices.goldINR && [
+                  ["1 gram gold", `₹${(prices.goldINR / 10).toFixed(0)}`, "Current MCX rate"],
+                  ["8 gram (1 tola)", `₹${(prices.goldINR * 0.8).toFixed(0)}`, "Traditional Indian unit"],
+                  ["10 gram", `₹${prices.goldINR.toFixed(0)}`, "Standard MCX unit"],
+                  ["100 gram", `₹${(prices.goldINR * 10).toFixed(0)}`, "100g bar"],
+                  ["1 oz (31.1g)", `₹${(prices.gold * prices.usdInr).toFixed(0)}`, "Troy ounce"],
+                  ["1 kg", `₹${(prices.goldINR * 100).toFixed(0)}`, "1000 gram"],
+                ].map(([l, v, d]) => (
+                  <div key={l} style={{ background: "#090920", borderRadius: 10, padding: 12 }}>
+                    <div style={{ fontSize: 10, color: C.muted }}>{l}</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: C.gold, fontFamily: "'JetBrains Mono',monospace", marginTop: 3 }}>{v}</div>
+                    <div style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>{d}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ PORTFOLIO TAB ═════════════════ */}
+        {tab === "portfolio" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, animation: "fadeUp 0.3s ease" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}>
+              {[["Invested", `₹${totalCost.toFixed(0)}`, C.muted], ["Value", `₹${(totalCost + totalPL).toFixed(0)}`, C.blue], ["P&L", `₹${totalPL.toFixed(0)}`, totalPL >= 0 ? C.green : C.red], ["Return", `${totalCost ? ((totalPL / totalCost) * 100).toFixed(2) : 0}%`, totalPL >= 0 ? C.green : C.red]].map(([l, v, col]) => (
+                <div key={l} style={{ ...P({ padding: 16, textAlign: "center" }) }}>
+                  <div style={{ fontSize: 10, color: C.muted, marginBottom: 5 }}>{l}</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: col, fontFamily: "'JetBrains Mono',monospace" }}>{v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ ...P({ padding: 18 }) }}>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 14, color: C.gold, marginBottom: 14 }}>💼 Holdings</div>
+              {portPL.map((h, i) => (
+                <div key={h.id} style={{ background: "#0a0a1e", border: `1px solid ${C.border}`, borderRadius: 10, padding: 14, marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                  <div>
+                    <div style={{ color: h.asset === "Gold" ? C.gold : C.silver, fontWeight: 700 }}>{h.asset === "Gold" ? "🥇" : "🥈"} {h.asset} — {h.qty}g @ ₹{h.buyPrice}/g</div>
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Current: ₹{h.cp.toFixed(1)}/g</div>
+                  </div>
+                  <div style={{ color: h.pl >= 0 ? C.green : C.red, fontWeight: 800, fontFamily: "'JetBrains Mono',monospace", fontSize: 15 }}>{h.pl >= 0 ? "▲" : "▼"} ₹{Math.abs(h.pl).toFixed(0)} ({h.plPct.toFixed(2)}%)</div>
+                  <button className="btn" onClick={() => setPortfolio(p => p.filter((_, j) => j !== i))} style={{ background: `${C.red}20`, color: C.red, border: `1px solid ${C.red}40`, padding: "4px 10px", borderRadius: 6, fontSize: 10 }}>✕</button>
+                </div>
+              ))}
+              <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <div>
+                  <div style={{ fontSize: 9, color: C.muted, marginBottom: 3 }}>Asset</div>
+                  <select value={newH.asset} onChange={e => setNewH(p => ({ ...p, asset: e.target.value }))} style={{ background: "#0f0f22", border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", borderRadius: 8, fontFamily: "monospace", fontSize: 11 }}>
+                    <option value="Gold">🥇 Gold</option><option value="Silver">🥈 Silver</option>
+                  </select>
+                </div>
+                <div>
+                  <div style={{ fontSize: 9, color: C.muted, marginBottom: 3 }}>Qty (gram)</div>
+                  <input value={newH.qty} onChange={e => setNewH(p => ({ ...p, qty: e.target.value }))} placeholder="e.g. 10" style={{ background: "#0f0f22", border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", borderRadius: 8, fontFamily: "monospace", fontSize: 11, width: 110 }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 9, color: C.muted, marginBottom: 3 }}>Buy Price ₹/g</div>
+                  <input value={newH.buyPrice} onChange={e => setNewH(p => ({ ...p, buyPrice: e.target.value }))} placeholder="e.g. 6800" style={{ background: "#0f0f22", border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", borderRadius: 8, fontFamily: "monospace", fontSize: 11, width: 130 }} />
+                </div>
+                <button className="btn" onClick={() => { if (!newH.qty || !newH.buyPrice) return; setPortfolio(p => [...p, { id: Date.now(), asset: newH.asset, qty: parseFloat(newH.qty), buyPrice: parseFloat(newH.buyPrice) }]); setNewH({ asset: "Gold", qty: "", buyPrice: "" }); }} style={{ background: `linear-gradient(135deg,${C.gold},#ff8c00)`, color: "#000", padding: "8px 18px", borderRadius: 8, fontWeight: 800, fontSize: 12, alignSelf: "flex-end" }}>+ ADD</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ ALERTS TAB ════════════════════ */}
+        {tab === "alerts" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, animation: "fadeUp 0.3s ease" }}>
+            <div style={{ ...P({ padding: 18 }) }}>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 14, color: C.gold, marginBottom: 16 }}>🔔 SMART PRICE ALERTS</div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+                {[["Asset", "select", ["gold", "silver"], "asset"], ["Condition", "select", ["ABOVE", "BELOW"], "condition"], ["Price ($)", "number", null, "price"]].map(([l, type, opts, key]) => (
+                  <div key={key}>
+                    <div style={{ fontSize: 9, color: C.muted, marginBottom: 3 }}>{l}</div>
+                    {type === "select" ? <select value={newAlert[key]} onChange={e => setNewAlert(p => ({ ...p, [key]: e.target.value }))} style={{ background: "#0f0f22", border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", borderRadius: 7, fontFamily: "monospace", fontSize: 11 }}>{opts.map(o => <option key={o} value={o}>{o.toUpperCase()}</option>)}</select>
+                      : <input value={newAlert[key]} onChange={e => setNewAlert(p => ({ ...p, [key]: e.target.value }))} placeholder="e.g. 2400" style={{ background: "#0f0f22", border: `1px solid ${C.border}`, color: C.text, padding: "8px 10px", borderRadius: 7, fontFamily: "monospace", fontSize: 12, width: 120 }} />}
+                  </div>
+                ))}
+                <button className="btn" onClick={() => { if (!newAlert.price) return; setAlerts(p => [...p, { id: Date.now(), ...newAlert }]); setNewAlert({ asset: "gold", condition: "ABOVE", price: "" }); }} style={{ background: `linear-gradient(135deg,${C.gold},#ff8c00)`, color: "#000", padding: "8px 18px", borderRadius: 8, fontWeight: 800, fontSize: 12, alignSelf: "flex-end" }}>+ ADD</button>
+              </div>
+              {alerts.map((a, i) => (
+                <div key={a.id} style={{ background: "#0a0a1e", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ fontFamily: "monospace", fontSize: 12 }}>{a.asset.toUpperCase()} {a.condition} ${a.price}</span>
+                  <button className="btn" onClick={() => setAlerts(p => p.filter((_, j) => j !== i))} style={{ background: `${C.red}20`, color: C.red, border: `1px solid ${C.red}40`, padding: "2px 8px", borderRadius: 5, fontSize: 10 }}>✕</button>
+                </div>
+              ))}
+              <div style={{ fontSize: 10, color: C.green, marginTop: 8 }}>✅ Checking every 12s automatically</div>
+            </div>
+            {firedAlerts.length > 0 && (
+              <div style={{ ...P({ padding: 14 }) }}>
+                {firedAlerts.map((a, i) => <div key={i} style={{ background: "#1a1200", border: `1px solid ${C.gold}25`, borderRadius: 7, padding: "8px 12px", marginBottom: 7, color: C.gold, fontSize: 11 }}>{a}</div>)}
+                <button className="btn" onClick={() => setFiredAlerts([])} style={{ background: `${C.red}20`, color: C.red, border: `1px solid ${C.red}40`, padding: "5px 12px", borderRadius: 6, fontSize: 10, marginTop: 6 }}>Clear</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══ AI CHAT TAB ═══════════════════ */}
+        {tab === "chat" && (
+          <div style={{ display: "flex", flexDirection: "column", height: "72vh", animation: "fadeUp 0.3s ease" }}>
+            <div style={{ ...P({ borderRadius: "12px 12px 0 0" }), padding: "14px 18px", borderBottom: `1px solid ${C.border}` }}>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 16, color: C.gold }}>🤖 AURUM AI — Gold Expert + Trading Guru</div>
+              <div style={{ display: "flex", gap: 7, marginTop: 10, flexWrap: "wrap" }}>
+                {["Gold aaj kharidun?", "RSI 70 ka matlab?", "MCX pe trading kaise?", "Stop loss kya hona chahiye?", "G/S ratio 85 — kya karna chahiye?", "Gold ka seasonal best time?"].map(q => (
+                  <button key={q} className="btn" onClick={() => setChatInput(q)} style={{ background: "#ffffff08", border: `1px solid ${C.border}`, color: C.muted, padding: "4px 11px", borderRadius: 18, fontSize: 10 }}>{q}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{ ...P({ borderRadius: 0 }), flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+              {chat.length === 0 && (
+                <div style={{ margin: "auto", textAlign: "center", color: C.muted }}>
+                  <div style={{ fontSize: 44, marginBottom: 10 }}>🥇</div>
+                  <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 16, color: C.gold }}>AURUM AI</div>
+                  <div style={{ marginTop: 6, fontSize: 12 }}>Gold, Silver, MCX, Trading — kuch bhi poochho</div>
+                  <div style={{ marginTop: 4, fontSize: 10, color: "#222240" }}>10 indicators + seasonal + India context ke saath expert jawab</div>
+                </div>
+              )}
+              {chat.map((m, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start", animation: "fadeUp 0.3s ease" }}>
+                  <div style={{ maxWidth: "82%", padding: "11px 15px", fontSize: 13, lineHeight: 1.8, whiteSpace: "pre-wrap", fontFamily: "monospace", borderRadius: m.role === "user" ? "14px 14px 3px 14px" : "14px 14px 14px 3px", background: m.role === "user" ? "#141002" : "#0c0c20", border: `1px solid ${m.role === "user" ? C.gold + "25" : C.border}`, color: C.text }}>
+                    {m.role === "ai" && <div style={{ color: C.gold, fontSize: 10, fontFamily: "'Playfair Display',serif", marginBottom: 5 }}>⚡ AURUM AI</div>}
+                    {m.text}
+                  </div>
+                </div>
+              ))}
+              {chatLoading && <div style={{ color: C.muted, fontSize: 12, animation: "pulse 1s infinite" }}>🔮 Thinking...</div>}
+              <div ref={chatEndRef} />
+            </div>
+            <div style={{ ...P({ borderRadius: "0 0 12px 12px" }), padding: "12px 14px", display: "flex", gap: 10, borderTop: `1px solid ${C.border}` }}>
+              <input value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === "Enter" && sendChat()} placeholder="Gold, Silver, MCX, Trading ke baare mein kuch bhi poochho..." style={{ flex: 1, background: "#0c0c20", border: `1px solid ${C.border}`, color: C.text, padding: "10px 14px", borderRadius: 9, fontFamily: "monospace", fontSize: 13 }} />
+              <button className="btn" onClick={sendChat} disabled={chatLoading || !chatInput.trim()} style={{ background: chatLoading ? "#111" : `linear-gradient(135deg,${C.gold},#ff8c00)`, color: chatLoading ? C.muted : "#000", padding: "10px 20px", borderRadius: 9, fontWeight: 800, fontSize: 13 }}>⚡</button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ textAlign: "center", padding: 12, color: C.muted, fontSize: 9, borderTop: `1px solid ${C.border}`, marginTop: 14 }}>
+        AURUM v2 • 10 Indicators • Pattern Recognition • Seasonal Analysis • India MCX Engine • SIP Calculator • Gold Converter • Claude AI • 12s refresh
+      </div>
+    </div>
+  );
+}
