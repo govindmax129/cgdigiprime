@@ -1,499 +1,202 @@
 <!DOCTYPE html>
 <html lang="hi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>cgdigi prime - Digital Marketing Agency | Premium Marketing Solutions</title>
-    <meta name="description" content="cgdigi prime is a leading digital marketing agency offering SEO, social media marketing, PPC, and creative digital solutions. Elevate your brand with our expert team.">
-    
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <style>
-        /* CSS Reset and Base Styles */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        :root {
-            --primary-color: #FF6B35;
-            --secondary-color: #004E89;
-            --accent-color: #2EC4B6;
-            --text-dark: #2C3E50;
-            --text-light: #7F8C8D;
-            --bg-light: #F8F9FA;
-            --white: #FFFFFF;
-            --shadow-sm: 0 2px 4px rgba(0,0,0,0.1);
-            --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
-            --shadow-lg: 0 10px 20px rgba(0,0,0,0.1);
-            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            line-height: 1.6;
-            color: var(--text-dark);
-            overflow-x: hidden;
-        }
-
-        /* Typography */
-        h1, h2, h3, h4, h5, h6 {
-            font-weight: 600;
-            line-height: 1.2;
-        }
-
-        /* Navigation */
-        .nav {
-            position: fixed;
-            top: 0;
-            width: 100%;
-            background: rgba(255, 255, 255, 0.98);
-            backdrop-filter: blur(10px);
-            z-index: 1000;
-            transition: var(--transition);
-        }
-
-        .nav.scrolled {
-            box-shadow: var(--shadow-md);
-        }
-
-        .nav-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 1rem 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary-color);
-            text-decoration: none;
-        }
-
-        .logo i {
-            font-size: 1.8rem;
-            color: var(--primary-color);
-        }
-
-        .nav-menu {
-            display: flex;
-            list-style: none;
-            gap: 2rem;
-            align-items: center;
-        }
-
-        .nav-link {
-            text-decoration: none;
-            color: var(--text-dark);
-            font-weight: 500;
-            position: relative;
-            transition: var(--transition);
-            padding: 0.5rem 0;
-        }
-
-        .nav-link:hover {
-            color: var(--primary-color);
-        }
-
-        .nav-link::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: var(--primary-color);
-            transition: width 0.3s ease;
-        }
-
-        .nav-link:hover::after {
-            width: 100%;
-        }
-
-        .cta-button {
-            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
-            color: white;
-            padding: 0.75rem 2rem;
-            border-radius: 50px;
-            text-decoration: none;
-            font-weight: 600;
-            transition: var(--transition);
-            display: inline-block;
-        }
-
-        .cta-button:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-lg);
-        }
-
-        /* Hero Section */
-        .hero {
-            margin-top: 70px;
-            padding: 8rem 2rem;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .hero::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            right: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-            animation: float 20s infinite ease-in-out;
-        }
-
-        @keyframes float {
-            0%, 100% { transform: rotate(0deg); }
-            33% { transform: rotate(120deg); }
-            66% { transform: rotate(240deg); }
-        }
-
-        .hero-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            text-align: center;
-            position: relative;
-            z-index: 1;
-        }
-
-        .hero-content {
-            max-width: 800px;
-            margin: 0 auto 3rem;
-        }
-
-        .hero-title {
-            font-size: 3.5rem;
-            font-weight: 800;
-            color: white;
-            margin-bottom: 1rem;
-            line-height: 1.2;
-        }
-
-        .hero-subtitle {
-            font-size: 1.25rem;
-            color: rgba(255, 255, 255, 0.9);
-            margin-bottom: 2rem;
-            line-height: 1.8;
-        }
-
-        .hero-buttons {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .btn-secondary {
-            background: transparent;
-            color: white;
-            padding: 0.75rem 2rem;
-            border-radius: 50px;
-            text-decoration: none;
-            font-weight: 600;
-            border: 2px solid white;
-            transition: var(--transition);
-        }
-
-        .btn-secondary:hover {
-            background: white;
-            color: var(--primary-color);
-        }
-
-        /* Stats Section */
-        .stats {
-            padding: 5rem 2rem;
-            background: var(--bg-light);
-        }
-
-        .stats-container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 3rem;
-            margin-top: 3rem;
-        }
-
-        .stat-item {
-            text-align: center;
-            transition: var(--transition);
-        }
-
-        .stat-item:hover {
-            transform: translateY(-10px);
-        }
-
-        .stat-icon {
-            width: 80px;
-            height: 80px;
-            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 1rem;
-            font-size: 2rem;
-            color: white;
-        }
-
-        .stat-number {
-            font-size: 2.5rem;
-            font-weight: 800;
-            color: var(--primary-color);
-            margin-bottom: 0.5rem;
-        }
-
-        .stat-label {
-            color: var(--text-light);
-            font-size: 0.95rem;
-        }
-
-        /* Services Section */
-        .services {
-            padding: 5rem 2rem;
-        }
-
-        .section-title {
-            text-align: center;
-            font-size: 2.5rem;
-            color: var(--text-dark);
-            margin-bottom: 1rem;
-        }
-
-        .section-subtitle {
-            text-align: center;
-            color: var(--text-light);
-            margin-bottom: 3rem;
-            font-size: 1.1rem;
-        }
-
-        .services-grid {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-        }
-
-        .service-card {
-            background: white;
-            border-radius: 15px;
-            padding: 2rem;
-            box-shadow: var(--shadow-md);
-            transition: var(--transition);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .service-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 4px;
-            background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
-            transform: translateX(-100%);
-            transition: transform 0.3s ease;
-        }
-
-        .service-card:hover::before {
-            transform: translateX(0);
-        }
-
-        .service-card:hover {
-            transform: translateY(-5px);
-            box-shadow: var(--shadow-lg);
-        }
-
-        .service-icon {
-            width: 60px;
-            height: 60px;
-            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
-            border-radius: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 1.5rem;
-            font-size: 1.5rem;
-            color: white;
-        }
-
-        .service-title {
-            font-size: 1.3rem;
-            color: var(--text-dark);
-            margin-bottom: 1rem;
-        }
-
-        .service-description {
-            color: var(--text-light);
-            line-height: 1.6;
-            margin-bottom: 1.5rem;
-        }
-
-        .service-features {
-            list-style: none;
-        }
-
-        .service-features li {
-            padding: 0.5rem 0;
-            color: var(--text-light);
-        }
-
-        .service-features li i {
-            color: var(--primary-color);
-            margin-right: 0.5rem;
-        }
-
-        /* Portfolio Section */
-        .portfolio {
-            padding: 5rem 2rem;
-            background: var(--bg-light);
-        }
-
-        .portfolio-container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .portfolio-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            margin-top: 3rem;
-        }
-
-        .portfolio-item {
-            position: relative;
-            border-radius: 15px;
-            overflow: hidden;
-            box-shadow: var(--shadow-md);
-            transition: var(--transition);
-        }
-
-        .portfolio-item:hover {
-            transform: scale(1.05);
-            box-shadow: var(--shadow-lg);
-        }
-
-        .portfolio-image {
-            width: 100%;
-            height: 250px;
-            object-fit: cover;
-        }
-
-        .portfolio-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .portfolio-item:hover .portfolio-overlay {
-            opacity: 1;
-        }
-
-        .portfolio-content {
-            color: white;
-            text-align: center;
-            padding: 2rem;
-        }
-
-        .portfolio-title {
-            font-size: 1.3rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .portfolio-category {
-            color: var(--primary-color);
-            font-size: 0.9rem;
-            margin-bottom: 1rem;
-        }
-
-        .portfolio-badge {
-            background: var(--primary-color);
-            color: white;
-            padding: 0.3rem 1rem;
-            border-radius: 20px;
-            font-size: 0.75rem;
-        }
-
-        /* Testimonials Section */
-        .testimonials {
-            padding: 5rem 2rem;
-        }
-
-        .testimonials-container {
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-
-        .testimonial-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            margin-top: 3rem;
-        }
-
-        .testimonial-card {
-            background: white;
-            border-radius: 15px;
-            padding: 2rem;
-            box-shadow: var(--shadow-md);
-            transition: var(--transition);
-        }
-
-        .testimonial-card:hover {
-            transform: translateY(-3px);
-            box-shadow: var(--shadow-lg);
-        }
-
-        .testimonial-icon {
-            color: var(--primary-color);
-            font-size: 2rem;
-            margin-bottom: 1rem;
-        }
-
-        .testimonial-text {
-            color: var(--text-light);
-            font-style: italic;
-            margin-bottom: 1.5rem;
-            line-height: 1.6;
-        }
-
-        .testimonial-author {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .author-avatar {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background: linear
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>cgdigi prime - Digital Marketing Agency | Premium Marketing Solutions</title>
+ <meta name="description" content="cgdigi prime is a leading digital marketing agency offering SEO, social media marketing, PPC, and creative digital solutions. Elevate your brand with our expert team.">
+ <meta name="keywords" content="digital marketing, SEO, social media, PPC, advertising, brand promotion">
+ <meta name="author" content="cgdigi prime">
+ 
+ <!-- Google Fonts -->
+ <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+ 
+ <!-- Font Awesome -->
+ <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+ 
+ <style>
+ /* CSS Reset and Base Styles */
+ * {
+ margin: 0;
+ padding: 0;
+ box-sizing: border-box;
+ }
+
+ :root {
+ --primary-color: #FF6B35;
+ --secondary-color: #004E89;
+ --accent-color: #2EC4B6;
+ --text-dark: #2C3E50;
+ --text-light: #7F8C8D;
+ --bg-light: #F8F9FA;
+ --white: #FFFFFF;
+ --shadow-sm: 0 2px 4px rgba(0,0,0,0.1);
+ --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+ --shadow-lg: 0 10px 20px rgba(0,0,0,0.1);
+ --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+ }
+
+ body {
+ font-family: 'Inter', sans-serif;
+ line-height: 1.6;
+ color: var(--text-dark);
+ overflow-x: hidden;
+ }
+
+ /* Typography */
+ h1, h2, h3, h4, h5, h6 {
+ font-weight: 600;
+ line-height: 1.2;
+ }
+
+ /* Navigation */
+ .nav {
+ position: fixed;
+ top: 0;
+ width: 100%;
+ background: rgba(255, 255, 255, 0.98);
+ backdrop-filter: blur(10px);
+z-index: 1000;
+ transition: var(--transition);
+ box-shadow: var(--shadow-sm);
+ }
+
+ .nav.scrolled {
+ box-shadow: var(--shadow-md);
+ }
+
+ .nav-container {
+ max-width: 1200px;
+ margin: 0 auto;
+ padding: 1rem 2rem;
+ display: flex;
+ justify-content: space-between;
+ align-items: center;
+ }
+
+ .logo {
+ display: flex;
+ align-items: center;
+ gap: 0.5rem;
+ font-size: 1.5rem;
+ font-weight: 700;
+ color: var(--primary-color);
+ text-decoration: none;
+ }
+
+ .logo i {
+ font-size: 1.8rem;
+ color: var(--primary-color);
+ }
+
+ .nav-menu {
+ display: flex;
+ list-style: none;
+ gap: 2rem;
+ align-items: center;
+ }
+
+ .nav-link {
+ text-decoration: none;
+ color: var(--text-dark);
+ font-weight: 500;
+ position: relative;
+ transition: var(--transition);
+ padding: 0.5rem 0;
+ }
+
+ .nav-link:hover {
+ color: var(--primary-color);
+ }
+
+ .nav-link::after {
+ content: '';
+ position: absolute;
+ bottom: 0;
+ left: 0;
+ width: 0;
+ height: 2px;
+ background: var(--primary-color);
+ transition: width 0.3s ease;
+ }
+
+ .nav-link:hover::after {
+ width: 100%;
+ }
+
+ .cta-button {
+ background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+ color: white;
+ padding: 0.75rem 2rem;
+ border-radius: 50px;
+ text-decoration: none;
+ font-weight: 600;
+ transition: var(--transition);
+ display: inline-block;
+ }
+
+ .cta-button:hover {
+ transform: translateY(-2px);
+ box-shadow: var(--shadow-lg);
+ }
+
+ /* Mobile Menu Toggle */
+ .menu-toggle {
+ display: none;
+ background: none;
+ border: none;
+ cursor: pointer;
+ padding: 0.5rem;
+ }
+
+ .menu-toggle span {
+ display: block;
+ width: 25px;
+ height: 3px;
+ background: var(--text-dark);
+ margin: 5px 0;
+ transition: var(--transition);
+ }
+
+ .menu-toggle.active span:nth-child(1) {
+ transform: rotate(45deg) translate(5px, 5px);
+ }
+
+ .menu-toggle.active span:nth-child(2) {
+ opacity: 0;
+ }
+
+ .menu-toggle.active span:nth-child(3) {
+ transform: rotate(-45deg) translate(7px, -6px);
+ }
+
+ /* Hero Section */
+ .hero {
+ margin-top: 70px;
+ padding: 8rem 2rem;
+ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+ position: relative;
+ overflow: hidden;
+ }
+
+ .hero::before {
+ content: '';
+ position: absolute;
+ top: -50%;
+ right: -50%;
+ width: 200%;
+ height: 200%;
+ background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+ animation: float 20s infinite ease-in-out;
+ }
+
+ @keyframes float {
+ 0%, 100% { transform: rotate(0deg); }
+ 33% { transform: rotate(120deg); }
+ 66% { transform: rotate(240deg); }
+ }
+
+ .hero-container {
+ max-width: 1200px;
+ margin: 0 auto;
+ text-
