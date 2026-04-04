@@ -1,412 +1,497 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">      
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CGDIGI PRIME | Premium Digital Agency</title>
-<meta name="description" content="CGDIGI PRIME is a results-driven digital marketing agency based in Jagdalpur.">
-<link href="
+import { useState, useEffect, useRef } from "react";
 
-https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap
+const ROLES = [
+  { id: "admin", label: "Admin", icon: "👑", color: "#F59E0B", desc: "Full Control Panel" },
+  { id: "employee", label: "Employee", icon: "👔", color: "#3B82F6", desc: "Lead Management" },
+  { id: "dealer", label: "Dealer", icon: "🤝", color: "#10B981", desc: "View Leads & Tracking" },
+];
 
-" rel="stylesheet">
-<link href="
+function SunLogo() {
+  return (
+    <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
+      <circle cx="22" cy="22" r="9" fill="#F59E0B" />
+      <circle cx="22" cy="22" r="13" fill="none" stroke="#FCD34D" strokeWidth="1" strokeDasharray="3 3" />
+      {[0,45,90,135,180,225,270,315].map((deg,i)=>(
+        <line key={i} x1={22+14*Math.cos(deg*Math.PI/180)} y1={22+14*Math.sin(deg*Math.PI/180)}
+          x2={22+18*Math.cos(deg*Math.PI/180)} y2={22+18*Math.sin(deg*Math.PI/180)}
+          stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
+      ))}
+    </svg>
+  );
+}
 
-https://unpkg.com/aos@2.3.1/dist/aos.css
+export default function SolarOTPLogin() {
+  const [step, setStep] = useState(1);       // 1=role, 2=email, 3=otp
+  const [role, setRole] = useState(null);
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState(["","","","","",""]);
+  const [loading, setLoading] = useState(false);
+  const [timer, setTimer] = useState(300);
+  const [canResend, setCanResend] = useState(false);
+  const [resendCount, setResendCount] = useState(0);
+  const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
+  const [attempts, setAttempts] = useState(0);
+  const [locked, setLocked] = useState(false);
+  const [shake, setShake] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const otpRefs = useRef([]);
 
-" rel="stylesheet">
-<style>
-  :root {
-    --primary: #0057FF;
-    --accent: #FF6B00;
-    --dark: #050810;
-    --dark2: #0a0f1c;
-    --card: rgba(17, 24, 39, 0.6);
-    --text: #E8EEFF;
-    --muted: #7A8AB0;
-    --border: rgba(0,87,255,0.2);
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html { scroll-behavior: smooth; overflow-x: hidden; cursor: none; }
-  body { font-family: 'DM Sans', sans-serif; background: var(--dark); color: var(--text); overflow-x: hidden; position: relative; cursor: none; }
-  
-  /* Custom Glowing Cursor & Trail */
-  .cursor-dot { width: 8px; height: 8px; background: var(--primary); position: fixed; border-radius: 50%; pointer-events: none; z-index: 9999; transform: translate(-50%, -50%); box-shadow: 0 0 10px var(--primary), 0 0 20px var(--primary); transition: width 0.2s, height 0.2s, background 0.2s; }
-  .cursor-trail { width: 36px; height: 36px; border: 2px solid var(--accent); position: fixed; border-radius: 50%; pointer-events: none; z-index: 9998; transform: translate(-50%, -50%); transition: width 0.3s, height 0.3s, background 0.3s, border-color 0.3s; box-shadow: 0 0 15px rgba(255,107,0,0.4); }
-  .cursor-dot.hovered { background: #fff; width: 12px; height: 12px; box-shadow: 0 0 20px #fff; }
-  .cursor-trail.hovered { width: 60px; height: 60px; background: rgba(0,87,255,0.1); border-color: var(--primary); box-shadow: 0 0 25px rgba(0,87,255,0.5); }
-  a, button, select, input, textarea { cursor: none; } 
-  @media (hover: none) and (pointer: coarse) { html, body, a, button, select, input, textarea { cursor: auto; } .cursor-dot, .cursor-trail { display: none !important; } }
+  // Timer countdown
+  useEffect(() => {
+    if (step !== 3) return;
+    if (timer <= 0) { setCanResend(true); return; }
+    const t = setTimeout(() => setTimer(t => t - 1), 1000);
+    return () => clearTimeout(t);
+  }, [step, timer]);
 
-  /* Antigravity Background Orbs */
-  .antigravity-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 0; overflow: hidden; }
-  .orb { position: absolute; border-radius: 50%; filter: blur(60px); opacity: 0.4; animation: floatUp infinite linear; }
-  .orb.blue { background: var(--primary); width: 300px; height: 300px; left: 10%; bottom: -300px; animation-duration: 25s; }
-  .orb.orange { background: var(--accent); width: 200px; height: 200px; right: 20%; bottom: -200px; animation-duration: 20s; animation-delay: 5s; }
-  .orb.small { background: #fff; width: 100px; height: 100px; left: 50%; bottom: -100px; animation-duration: 15s; animation-delay: 2s; opacity: 0.2; }
-  @keyframes floatUp { 0% { transform: translateY(0) scale(0.8) rotate(0deg); opacity: 0; } 20% { opacity: 0.5; } 80% { opacity: 0.5; } 100% { transform: translateY(-120vh) scale(1.5) rotate(360deg); opacity: 0; } }
+  const doShake = () => {
+    setShake(true);
+    setTimeout(() => setShake(false), 600);
+  };
 
-  .float-element { animation: continuousFloat 6s ease-in-out infinite; }
-  .float-element-delayed { animation: continuousFloat 7s ease-in-out infinite 2s; }
-  @keyframes continuousFloat { 0% { transform: translateY(0px); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0px); } }
+  const showError = (msg) => { setError(msg); setInfo(""); doShake(); };
+  const showInfo = (msg) => { setInfo(msg); setError(""); };
 
-  /* Navbar */
-  nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; padding: 18px 5%; display: flex; justify-content: space-between; align-items: center; background: rgba(5,8,16,0.7); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-  .logo { display: flex; align-items: center; gap: 12px; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.4rem; letter-spacing: 1px; text-decoration: none; position: relative; z-index: 2; }
-  .logo img { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(0,87,255,0.6); box-shadow: 0 0 20px rgba(0,87,255,0.5); transition: transform 0.5s ease; }
-  .logo:hover img { transform: rotate(360deg) scale(1.1); }
-  .logo span { color: var(--primary); text-shadow: 0 0 10px rgba(0,87,255,0.3); }
-  .logo em { color: var(--accent); font-style: normal; text-shadow: 0 0 10px rgba(255,107,0,0.3); }
-  .nav-links { display: flex; gap: 32px; list-style: none; z-index: 2; }
-  .nav-links a { color: var(--muted); text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: color 0.3s; }
-  .nav-links a:hover { color: #fff; text-shadow: 0 0 8px rgba(255,255,255,0.5); }
-  .nav-cta { background: linear-gradient(45deg, var(--primary), var(--accent)); color: #fff !important; padding: 10px 22px; border-radius: 30px; font-weight: 600 !important; transition: all 0.3s !important; box-shadow: 0 5px 15px rgba(255,107,0,0.3); }
-  .nav-cta:hover { transform: translateY(-3px) scale(1.05); box-shadow: 0 8px 25px rgba(0,87,255,0.5); }
-  
-  /* Hero Section */
-  .hero { min-height: 100vh; display: flex; align-items: center; padding: 100px 5% 60px; position: relative; z-index: 1; }
-  .grid-lines { position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px); background-size: 80px 80px; transform: perspective(500px) rotateX(60deg) translateY(-100px) translateZ(-200px); animation: moveGrid 20s linear infinite; z-index: -1; }
-  @keyframes moveGrid { 0% { background-position: 0 0; } 100% { background-position: 0 80px; } }
-  
-  .hero-content { position: relative; z-index: 2; max-width: 750px; }
-  .badge { display: inline-block; background: rgba(0,87,255,0.1); border: 1px solid rgba(0,87,255,0.5); color: #6EAAFF; font-size: 0.8rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; padding: 8px 20px; border-radius: 30px; margin-bottom: 24px; backdrop-filter: blur(5px); }
-  h1 { font-family: 'Syne', sans-serif; font-size: clamp(2.8rem, 6vw, 5rem); font-weight: 800; line-height: 1.05; margin-bottom: 24px; text-transform: uppercase; }
-  h1 .blue { color: transparent; -webkit-text-stroke: 1px var(--primary); background: linear-gradient(90deg, var(--primary), #00c3ff); -webkit-background-clip: text; display: inline-block; animation: neonPulse 2s infinite alternate; }
-  h1 .orange { color: var(--accent); display: inline-block; }
-  @keyframes neonPulse { from { text-shadow: 0 0 10px rgba(0,87,255,0.2); } to { text-shadow: 0 0 20px rgba(0,87,255,0.6), 0 0 40px rgba(0,87,255,0.4); } }
+  // Step 1 — Role select
+  const handleRoleSelect = (r) => {
+    setRole(r);
+    setError("");
+    setTimeout(() => setStep(2), 250);
+  };
 
-  .hero p { font-size: 1.15rem; color: var(--muted); line-height: 1.8; margin-bottom: 40px; max-width: 600px; }
-  .btn-primary { background: linear-gradient(135deg, var(--primary), #00308F); color: #fff; padding: 16px 36px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 1rem; transition: all 0.3s; box-shadow: 0 10px 30px rgba(0,87,255,0.4); display: inline-block; position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); cursor: none;}
-  .btn-primary::after { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 60%); opacity: 0; transition: opacity 0.3s; transform: scale(0.5); }
-  .btn-primary:hover::after { opacity: 1; transform: scale(1); }
-  .btn-primary:hover { transform: translateY(-5px) scale(1.02); box-shadow: 0 15px 40px rgba(0,87,255,0.6); }
-  
-  .hero-stats { position: absolute; right: 8%; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 40px; z-index: 2; }
-  .stat { background: rgba(255,255,255,0.03); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.05); padding: 20px; border-radius: 20px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
-  .stat-num { font-family: 'Syne', sans-serif; font-size: 3rem; font-weight: 800; color: #fff; display: block; text-shadow: 0 0 20px var(--primary); }
-  .stat-num .o { color: var(--accent); text-shadow: 0 0 20px var(--accent); }
-  .stat-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; font-weight: 700; }
-  
-  /* Services Section */
-  section { padding: 120px 5%; position: relative; z-index: 2; }
-  .section-tag { font-size: 0.8rem; font-weight: 800; letter-spacing: 4px; text-transform: uppercase; color: var(--accent); margin-bottom: 16px; display: inline-block; border-bottom: 2px solid var(--primary); padding-bottom: 5px; }
-  .section-title { font-family: 'Syne', sans-serif; font-size: clamp(2rem, 4vw, 3.5rem); font-weight: 800; margin-bottom: 20px; line-height: 1.2; }
-  
-  .services-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 40px; perspective: 1200px; }
-  
-  .highlight-card { background: linear-gradient(var(--dark2), var(--dark2)) padding-box, linear-gradient(135deg, #1877F2, #E1306C, #25D366, #FF6B00, #1877F2) border-box; border: 3px solid transparent; border-radius: 24px; background-size: 300% 300%; animation: gradientBorder 6s ease infinite; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 0 30px rgba(255, 255, 255, 0.02); transform-style: preserve-3d; padding: 40px 30px; position: relative;}
-  @keyframes gradientBorder { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+  // Step 2 — Email submit → send OTP
+  const handleSendOTP = async () => {
+    setError("");
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      showError("Valid email address daalo");
+      return;
+    }
+    setLoading(true);
+    try {
+      // API call: POST /api/auth/send-otp
+      const res = await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.toLowerCase(), role }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(data.message); return; }
+      setStep(3);
+      setTimer(300);
+      setCanResend(false);
+      setEmailSent(true);
+      showInfo(`OTP bheja gaya ✅`);
+      setTimeout(() => setInfo(""), 3000);
+      setTimeout(() => otpRefs.current[0]?.focus(), 300);
+    } catch {
+      showError("Network error. Internet check karo.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  .service-icon-wrap { display: flex; gap: 15px; margin-bottom: 24px; transform: translateZ(40px); }
-  .real-logo { width: 55px; height: 55px; fill: currentColor; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.5)); transition: transform 0.3s; }
-  .highlight-card:hover .real-logo { transform: scale(1.15) rotate(5deg); }
-  .logo-fb { color: #1877F2; filter: drop-shadow(0 0 15px rgba(24, 119, 242, 0.6)); }
-  .logo-ig { color: #E1306C; filter: drop-shadow(0 0 15px rgba(225, 48, 108, 0.6)); }
-  .logo-wa { color: #25D366; filter: drop-shadow(0 0 15px rgba(37, 211, 102, 0.6)); }
-  .logo-lead { color: #FF6B00; filter: drop-shadow(0 0 15px rgba(255, 107, 0, 0.6)); }
+  // OTP input handlers
+  const handleOtpChange = (i, val) => {
+    if (!/^\d*$/.test(val)) return;
+    const n = [...otp]; n[i] = val.slice(-1); setOtp(n);
+    if (val && i < 5) otpRefs.current[i+1]?.focus();
+    // Auto submit when all 6 filled
+    if (val && i === 5) {
+      const full = [...n].join("");
+      if (full.length === 6) setTimeout(() => handleVerifyOTP([...n].join("")), 100);
+    }
+  };
 
-  .highlight-card h3 { font-family: 'Syne', sans-serif; font-size: 1.5rem; font-weight: 800; margin-bottom: 12px; transform: translateZ(30px); text-shadow: 0 5px 10px rgba(0,0,0,0.5); }
-  .highlight-card p { color: var(--muted); font-size: 1rem; line-height: 1.7; transform: translateZ(20px); }
-  .highlight-tag { position: absolute; top: -15px; right: 20px; background: linear-gradient(45deg, #FF6B00, #ff2a00); color: #fff; padding: 5px 15px; border-radius: 20px; font-size: 0.8rem; font-weight: 800; letter-spacing: 1px; transform: translateZ(50px); box-shadow: 0 5px 15px rgba(255,107,0,0.5); }
+  const handleOtpKey = (i, e) => {
+    if (e.key === "Backspace" && !otp[i] && i > 0) {
+      otpRefs.current[i-1]?.focus();
+    }
+    if (e.key === "Enter" && otp.join("").length === 6) handleVerifyOTP(otp.join(""));
+  };
 
-  /* About & Contact ... */
-  .about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
-  .about-visual { position: relative; padding: 50px; border-radius: 30px; background: linear-gradient(135deg, rgba(17,24,39,0.8), rgba(5,8,16,0.9)); border: 1px solid rgba(255,255,255,0.05); box-shadow: inset 0 0 50px rgba(0,0,0,0.5), 0 20px 50px rgba(0,87,255,0.1); }
-  .about-visual::before { content: ''; position: absolute; top: -2px; left: -2px; right: -2px; bottom: -2px; background: linear-gradient(45deg, var(--primary), transparent, var(--accent), transparent); z-index: -1; border-radius: 32px; animation: borderGlow 6s linear infinite; background-size: 400%; }
-  
-  .why-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 30px; }
-  .why-card { text-align: center; padding: 40px 24px; background: var(--card); backdrop-filter: blur(10px); border-radius: 20px; border: 1px solid rgba(255,255,255,0.05); transform-style: preserve-3d; }
-  .why-num { font-family: 'Syne', sans-serif; font-size: 3.5rem; font-weight: 800; background: linear-gradient(135deg, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: block; margin-bottom: 12px; transform: translateZ(40px); }
-  .why-card h4 { font-family: 'Syne', sans-serif; font-size: 1.2rem; transform: translateZ(20px); margin-bottom: 10px; }
+  // Handle paste
+  const handleOtpPaste = (e) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text").replace(/\D/g,"").slice(0,6);
+    if (!pasted) return;
+    const n = [...otp];
+    [...pasted].forEach((c, i) => { n[i] = c; });
+    setOtp(n);
+    otpRefs.current[Math.min(pasted.length, 5)]?.focus();
+    if (pasted.length === 6) setTimeout(() => handleVerifyOTP(pasted), 100);
+  };
 
-  .contact-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; }
-  .contact-info h3 { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 700; margin-bottom: 28px; }
-  .contact-item { display: flex; gap: 16px; margin-bottom: 24px; align-items: flex-start; transition: transform 0.3s; }
-  .contact-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .contact-item strong { display: block; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 4px; }
-  .contact-form { background: rgba(17,24,39,0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; padding: 40px; }
-  .form-group { margin-bottom: 20px; }
-  .form-group label { display: block; font-size: 0.82rem; font-weight: 500; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; }
-  .form-group input, .form-group textarea, .form-group select { width: 100%; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 13px 16px; color: var(--text); font-family: 'DM Sans', sans-serif; outline: none; }
-  .btn-submit { width: 100%; background: linear-gradient(135deg, var(--primary), #0045cc); color: #fff; border: none; padding: 15px; border-radius: 8px; font-weight: 600; cursor: none; }
-  
-  /* Smart AI Chatbot UI (Left) */
-  .chatbot-float { position: fixed; bottom: 30px; left: 30px; width: 60px; height: 60px; background: linear-gradient(135deg, var(--primary), #00c3ff); color: #FFF; border-radius: 50px; text-align: center; box-shadow: 0 0 20px rgba(0, 87, 255, 0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; animation: continuousFloat 5s ease-in-out infinite 1s; border: 2px solid rgba(255,255,255,0.2); transition: transform 0.3s; cursor: none;}
-  .chatbot-float:hover { transform: scale(1.1) rotate(-5deg); box-shadow: 0 0 30px rgba(0, 87, 255, 0.8); }
-  
-  .chat-window { position: fixed; bottom: 100px; left: 30px; width: 320px; background: rgba(17,24,39,0.95); backdrop-filter: blur(20px); border: 1px solid var(--primary); border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); z-index: 1001; display: none; flex-direction: column; overflow: hidden; transform: translateY(20px); opacity: 0; transition: all 0.3s ease; }
-  .chat-window.active { display: flex; transform: translateY(0); opacity: 1; }
-  
-  .chat-header { background: linear-gradient(90deg, var(--primary), #00308F); padding: 15px; display: flex; justify-content: space-between; align-items: center; font-family: 'Syne', sans-serif; font-weight: 700; }
-  .chat-header span { display: flex; align-items: center; gap: 8px; }
-  .close-chat { background: none; border: none; color: #fff; font-size: 1.2rem; font-weight: bold; cursor: none; }
-  
-  .chat-body { padding: 15px; height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; font-size: 0.9rem; }
-  .msg-bot { background: rgba(0,87,255,0.15); border: 1px solid rgba(0,87,255,0.3); padding: 10px 15px; border-radius: 15px 15px 15px 0; align-self: flex-start; max-width: 85%; line-height: 1.5; }
-  .msg-user { background: linear-gradient(45deg, var(--accent), #ff2a00); padding: 10px 15px; border-radius: 15px 15px 0 15px; align-self: flex-end; max-width: 85%; color: #fff; line-height: 1.5;}
-  
-  .chat-options { display: flex; flex-direction: column; gap: 8px; margin-top: 5px; }
-  .chat-btn-opt { background: transparent; border: 1px solid var(--primary); color: #6EAAFF; padding: 8px 15px; border-radius: 20px; font-size: 0.85rem; text-align: left; transition: all 0.2s; cursor: none;}
-  .chat-btn-opt:hover { background: var(--primary); color: #fff; }
-  
-  .chat-input-area { padding: 15px; border-top: 1px solid rgba(255,255,255,0.1); display: none; gap: 10px; }
-  .chat-input { flex: 1; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); color: #fff; border-radius: 20px; padding: 8px 15px; outline: none; font-family: 'DM Sans'; font-size: 0.9rem;}
-  .chat-send { background: var(--primary); border: none; color: #fff; width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: none; }
-
-  @media (max-width: 900px) { .hero-stats { position: relative; right: auto; top: auto; transform: none; flex-direction: row; justify-content: space-between; margin-top: 50px; } .about-grid, .contact-wrap { grid-template-columns: 1fr; } }
-  @media (max-width: 768px) { .nav-links { display: none; } h1 { font-size: 2.5rem; } .hero-stats { flex-wrap: wrap; gap: 20px; } .chatbot-float { bottom: 20px; left: 20px; width: 50px; height: 50px; } .chat-window { left: 20px; width: calc(100vw - 40px); bottom: 80px; } }
-</style>
-</head>
-<body>
-
-<div class="cursor-dot"></div>
-<div class="cursor-trail"></div>
-
-<div class="antigravity-container">
-  <div class="orb blue"></div>
-  <div class="orb orange"></div>
-  <div class="orb small"></div>
-</div>
-
-<nav id="navbar">
-  <a href="#home" class="logo float-element interactive">
-    <img src="
-
-https://i.ibb.co/xqQqb6hh/background-removal-TUFIQj-Nf-ODE0d0kj-MSM2-Y2-Fm-Mjhh-NTNh-Mz-Ri-Yz-Bi-NTFl-MTQ3-ZGQx-Nm-Ey-20260220-21.png
-
-" alt="CGDIGI PRIME Logo" onerror="this.style.display='none'">
-    <span>CGDIGI</span> <em>PRIME</em>
-  </a>
-  <ul class="nav-links">
-    <li><a href="#services" class="interactive">Services</a></li>
-    <li><a href="#about" class="interactive">About</a></li>
-    <li><a href="#contact" class="nav-cta interactive">Contact Us</a></li>
-  </ul>
-</nav>
-
-<section class="hero" id="home">
-  <div class="grid-lines"></div>
-  <div class="hero-content">
-    <div class="badge float-element">📍 Jagdalpur, Chhattisgarh</div>
-    <h1 data-aos="fade-up">Master the <br><span class="blue">Digital</span> <span class="orange">World</span></h1>
-    <p data-aos="fade-up" data-aos-delay="100">CGDIGI PRIME delivers antigravity growth for your business. We elevate your brand beyond standard limits using powerful strategies.</p>
-    <div style="display: flex; gap: 20px; flex-wrap: wrap;" data-aos="fade-up" data-aos-delay="200">
-      <a href="#contact" class="btn-primary interactive">Launch Campaign 🚀</a>
-    </div>
-  </div>
-</section>
-
-<section id="services">
-  <div class="section-tag" data-aos="fade-right">Our Power</div>
-  <div class="section-title" data-aos="fade-right">Premium Campaigns</div>
-  <div class="services-grid">
-    <div class="service-card highlight-card interactive" data-tilt data-tilt-max="20" data-tilt-glare data-tilt-max-glare="0.3" data-aos="fade-up">
-      <div class="highlight-tag float-element">🔥 TOP RATED</div>
-      <div class="service-icon-wrap float-element-delayed">
-        <svg class="real-logo logo-fb" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-      </div>
-      <h3>Facebook & Insta Ads</h3>
-      <p>Data-driven Meta ads that strictly maximize your sales and conversions.</p>
-    </div>
-
-    <div class="service-card highlight-card interactive" data-tilt data-tilt-max="20" data-tilt-glare data-tilt-max-glare="0.3" data-aos="fade-up" data-aos-delay="100">
-      <div class="highlight-tag float-element" style="background: linear-gradient(45deg, #128C7E, #25D366);">DIRECT REACH</div>
-      <div class="service-icon-wrap float-element">
-        <svg class="real-logo logo-wa" viewBox="0 0 32 32"><path d="M16 2C8.268 2 2 8.268 2 16c0 2.416.632 4.686 1.74 6.654L2 30l7.528-1.714A13.93 13.93 0 0016 30c7.732 0 14-6.268 14-14S23.732 2 16 2zm0 25.6a11.54 11.54 0 01-5.88-1.608l-.42-.252-4.468 1.016 1.036-4.352-.276-.448A11.56 11.56 0 014.4 16C4.4 9.592 9.592 4.4 16 4.4S27.6 9.592 27.6 16 22.408 27.6 16 27.6zm6.32-8.672c-.348-.174-2.06-1.016-2.38-1.132-.32-.116-.552-.174-.784.174-.232.348-.9 1.132-1.104 1.364-.204.232-.406.26-.754.086-.348-.174-1.468-.54-2.796-1.724-1.032-.92-1.728-2.056-1.932-2.404-.204-.348-.022-.536.152-.708.158-.156.348-.406.522-.61.174-.202.232-.348.348-.58.116-.232.058-.434-.028-.608-.088-.174-.784-1.892-1.074-2.59-.284-.68-.572-.588-.784-.598l-.668-.012c-.232 0-.608.086-.926.434-.318.348-1.216 1.19-1.216 2.9s1.244 3.364 1.418 3.596c.174.232 2.448 3.736 5.932 5.24.828.358 1.476.572 1.98.732.832.264 1.59.226 2.188.138.668-.1 2.06-.842 2.35-1.656.29-.814.29-1.512.204-1.656-.086-.144-.318-.232-.666-.406z"/></svg>
-      </div>
-      <h3>WhatsApp Marketing</h3>
-      <p>Talk directly to customers' pockets. Bulk campaigns, automation, and funnels.</p>
-    </div>
-
-    <div class="service-card highlight-card interactive" data-tilt data-tilt-max="20" data-tilt-glare data-tilt-max-glare="0.3" data-aos="fade-up" data-aos-delay="200">
-      <div class="highlight-tag float-element" style="background: linear-gradient(45deg, #0057FF, #00c3ff);">HIGH ROI</div>
-      <div class="service-icon-wrap float-element-delayed">
-        <svg class="real-logo logo-lead" viewBox="0 0 24 24"><path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8zm0-13a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 7a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/></svg>
-      </div>
-      <h3>Lead Generation</h3>
-      <p>Digital funnels that capture high-quality, ready-to-buy leads daily.</p>
-    </div>
-  </div>
-</section>
-
-<section id="contact">
-  <div class="section-tag" data-aos="fade-right">Get In Touch</div>
-  <div class="section-title" data-aos="fade-right">Contact Us</div>
-  <div class="contact-wrap">
-    <div class="contact-info" data-aos="fade-right" data-aos-delay="100">
-      <h3>Let's grow your business together!</h3>
-      <div class="contact-item"><div class="contact-icon" style="background:rgba(0,87,255,0.15);">📍</div><div><strong>Address</strong><span>Jagdalpur, Chhattisgarh</span></div></div>
-      <div class="contact-item"><div class="contact-icon" style="background:rgba(0,87,255,0.15);">📧</div><div><strong>Email</strong><a href="mailto:cgdigiprime@zohomail.in" class="interactive">cgdigiprime@zohomail.in</a></div></div>
-    </div>
-    
-    <div class="contact-form" data-aos="fade-left" data-aos-delay="200">
-      <h3>Send Us a Message</h3>
-      <form action="
-
-FormSubmit | Easy to use form backend - form endpoints for your HTML forms
-https://formsubmit.co/cgdigiprime@zohomail.in
-
-" method="POST">
-        <input type="hidden" name="_next" value="
-https://cgdigiprime.vercel.app
-">
-        <input type="hidden" name="_captcha" value="false">
-        <div class="form-group"><label>Your Name</label><input type="text" name="name" class="interactive" required></div>
-        <div class="form-group"><label>Phone Number</label><input type="tel" name="phone" class="interactive" required></div>
-        <div class="form-group">
-          <label>Service Needed</label>
-          <select name="service" class="interactive">
-            <option>Facebook & Insta Ads</option>
-            <option>WhatsApp Marketing</option>
-            <option>Lead Generation</option>
-          </select>
-        </div>
-        <div class="form-group"><label>Message</label><textarea name="message" class="interactive"></textarea></div>
-        <button type="submit" class="btn-submit interactive">Send Message 🚀</button>
-      </form>
-    </div>
-  </div>
-</section>
-
-<footer style="padding: 50px 5%; border-top: 1px solid rgba(255,255,255,0.05); text-align: center; background: #050810;">
-  <h2 style="font-family: 'Syne'; margin-bottom: 20px;">CGDIGI <span style="color:var(--accent)">PRIME</span></h2>
-  <p style="color: var(--muted); font-size: 0.9rem;">Empowering Jagdalpur & Beyond. © 2026 All Rights Reserved.</p>
-</footer>
-
-<div class="chatbot-float interactive" onclick="toggleChat()" title="Talk to AI Assistant">
-  <svg width="28" height="28" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.486 2 2 5.589 2 10c0 2.908 1.898 5.515 5 7.034V22l5.34-4.005C12.22 17.99 12.11 18 12 18c5.514 0 10-3.589 10-8s-4.486-8-10-8zm-2 9h-2V9h2v2zm4 0h-2V9h2v2zm4 0h-2V9h2v2z"/></svg>
-</div>
-
-<div class="chat-window" id="chatWindow">
-  <div class="chat-header">
-    <span>🤖 CGDIGI AI Assistant</span>
-    <button class="close-chat interactive" onclick="toggleChat()">×</button>
-  </div>
-  <div class="chat-body" id="chatBody">
-    <div class="msg-bot">Namaste! Welcome to CGDIGI PRIME. Main aapki kya sahayata kar sakta hoon?</div>
-    <div class="chat-options" id="chatOptions">
-      <button class="chat-btn-opt interactive" onclick="handleService('Facebook & Insta Ads')">🎯 Facebook & Insta Ads</button>
-      <button class="chat-btn-opt interactive" onclick="handleService('WhatsApp Marketing')">💬 WhatsApp Marketing</button>
-      <button class="chat-btn-opt interactive" onclick="handleService('Lead Generation')">⚡ Lead Generation</button>
-    </div>
-  </div>
-  <div class="chat-input-area" id="chatInputArea">
-    <input type="text" id="chatInput" class="chat-input interactive" placeholder="Enter Details...">
-    <button class="chat-send interactive" onclick="sendChatData()">➤</button>
-  </div>
-</div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.8.1/vanilla-tilt.min.js"></script>
-<script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
-<script>
-  AOS.init({ duration: 1000, easing: 'ease-out-cubic', once: true, offset: 50 });
-
-  // Custom Cursor
-  const cursorDot = document.querySelector('.cursor-dot');
-  const cursorTrail = document.querySelector('.cursor-trail');
-  let mouseX = 0, mouseY = 0, trailX = 0, trailY = 0;
-  window.addEventListener('mousemove', (e) => {
-    mouseX = e.clientX; mouseY = e.clientY;
-    cursorDot.style.left = mouseX + 'px'; cursorDot.style.top = mouseY + 'px';
-  });
-  function animateTrail() {
-    trailX += (mouseX - trailX) * 0.15; trailY += (mouseY - trailY) * 0.15;
-    cursorTrail.style.left = trailX + 'px'; cursorTrail.style.top = trailY + 'px';
-    requestAnimationFrame(animateTrail);
-  }
-  animateTrail();
-
-  document.querySelectorAll('.interactive, a, button, input, select, textarea').forEach(el => {
-    el.addEventListener('mouseenter', () => { cursorDot.classList.add('hovered'); cursorTrail.classList.add('hovered'); });
-    el.addEventListener('mouseleave', () => { cursorDot.classList.remove('hovered'); cursorTrail.classList.remove('hovered'); });
-  });
-
-  // --- AI CHATBOT LOGIC ---
-  const chatWindow = document.getElementById('chatWindow');
-  const chatBody = document.getElementById('chatBody');
-  const chatOptions = document.getElementById('chatOptions');
-  const chatInputArea = document.getElementById('chatInputArea');
-  const chatInput = document.getElementById('chatInput');
-  
-  let selectedService = "";
-
-  function toggleChat() {
-    chatWindow.classList.toggle('active');
-  }
-
-  function appendUserMsg(msg) {
-    chatBody.innerHTML += `<div class="msg-user">${msg}</div>`;
-    chatBody.scrollTop = chatBody.scrollHeight;
-  }
-
-  function appendBotMsg(msg) {
-    chatBody.innerHTML += `<div class="msg-bot">${msg}</div>`;
-    chatBody.scrollTop = chatBody.scrollHeight;
-  }
-
-  function handleService(service) {
-    selectedService = service;
-    chatOptions.style.display = 'none'; // Hide buttons
-    appendUserMsg(service);
-    
-    // Bot replies based on choice
-    setTimeout(() => {
-      appendBotMsg(`Great choice! Hum ${service} mein experts hain. Data-driven strategy se aapka ROI maximize hoga.`);
-      setTimeout(() => {
-        appendBotMsg(`Kripya apna <b>Naam aur Phone Number</b> likhein, taaki humari team aapko turant contact kare.`);
-        chatInputArea.style.display = 'flex';
-      }, 800);
-    }, 500);
-  }
-
-  function sendChatData() {
-    let userData = chatInput.value.trim();
-    if(userData === "") return;
-    
-    appendUserMsg(userData);
-    chatInput.value = "";
-    chatInputArea.style.display = "none";
-    
-    // Loading Message
-    let loadingMsgId = "loading-" + Date.now();
-    chatBody.innerHTML += `<div class="msg-bot" id="${loadingMsgId}">Sending details securely to our team... ⏳</div>`;
-    chatBody.scrollTop = chatBody.scrollHeight;
-
-    // SEND EMAIL IN BACKGROUND USING FORMSUBMIT
-    fetch("
-
-https://formsubmit.co/ajax/cgdigiprime@zohomail.in
-
-", {
-      method: "POST",
-      headers: { 
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({
-        _subject: "🚀 New Lead from AI Chatbot!",
-        Service_Selected: selectedService,
-        Customer_Name_and_Number: userData
-      })
-    })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
+  // Step 3 — Verify OTP
+  const handleVerifyOTP = async (otpValue) => {
+    const code = otpValue || otp.join("");
+    if (code.length < 6) { showError("6 digit OTP daalo"); return; }
+    if (locked) { showError("Account locked. Admin se contact karo."); return; }
+    setLoading(true);
+    try {
+      // API call: POST /api/auth/verify-otp
+      const res = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include", // cookies ke liye
+        body: JSON.stringify({ email: email.toLowerCase(), role, otp: code }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        const newAttempts = attempts + 1;
+        setAttempts(newAttempts);
+        if (newAttempts >= 5 || data.locked) {
+          setLocked(true);
+          showError("⛔ Account lock ho gaya. Admin se contact karo.");
+        } else {
+          showError(data.message || `Galat OTP. ${5-newAttempts} attempts bache.`);
+          setOtp(["","","","","",""]);
+          setTimeout(() => otpRefs.current[0]?.focus(), 100);
+        }
+        return;
       }
-      return response.json();
-    })
-    .then(data => {
-      document.getElementById(loadingMsgId).style.display = "none";
-      appendBotMsg("✅ <b>CGDIGI PRIME me judne ke liye dhanyavad!</b> Humari team jald hi aapse sampark karegi.");
-    })
-    .catch(error => {
-      console.error("FormSubmit Error:", error);
-      document.getElementById(loadingMsgId).style.display = "none";
-      appendBotMsg("❌ <b>Maaf kijiye, message bhejne mein technical dikkat aayi.</b> Kripya humein seedha Contact Form se message karein ya dobara try karein.");
-      chatInputArea.style.display = "flex";
-    });
-  }
-</script>
-</body>
-</html>
+      // Success — token store karo aur redirect
+      if (data.accessToken) {
+        sessionStorage.setItem("accessToken", data.accessToken);
+        sessionStorage.setItem("userRole", data.user.role);
+      }
+      showInfo("✅ Login ho gaya! Redirect ho raha hai...");
+      // Role-based redirect
+      setTimeout(() => {
+        const routes = { admin: "/admin", employee: "/employee", dealer: "/dealer" };
+        window.location.href = routes[data.user.role] || "/dashboard";
+      }, 1200);
+    } catch {
+      showError("Network error. Internet check karo.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  // Resend OTP
+  const handleResend = async () => {
+    if (!canResend || resendCount >= 3) return;
+    if (resendCount >= 3) { showError("Max resend limit. Baad mein try karo."); return; }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.toLowerCase(), role }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(data.message); return; }
+      setOtp(["","","","","",""]);
+      setTimer(300);
+      setCanResend(false);
+      setResendCount(c => c+1);
+      setAttempts(0);
+      showInfo("Naya OTP bheja gaya ✅");
+      setTimeout(() => setInfo(""), 3000);
+      setTimeout(() => otpRefs.current[0]?.focus(), 100);
+    } catch {
+      showError("Network error.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fmt = (s) => `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+  const selectedRole = ROLES.find(r => r.id === role);
+  const maskEmail = (e) => { const [u,d]=e.split("@"); return `${u.slice(0,2)}${"*".repeat(Math.max(u.length-2,2))}@${d}`; };
+
+  return (
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:'Sora',sans-serif}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-10px)}40%{transform:translateX(10px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+        @keyframes scanline{0%{transform:translateY(-100%)}100%{transform:translateY(100vh)}}
+        @keyframes glowBorder{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0)}50%{box-shadow:0 0 0 4px rgba(245,158,11,0.2)}}
+        @keyframes dotPulse{0%,80%,100%{transform:scale(0.6)}40%{transform:scale(1)}}
+        .fadeUp{animation:fadeUp 0.45s cubic-bezier(0.16,1,0.3,1) forwards}
+        .shake{animation:shake 0.5s ease}
+        .otp-box{
+          width:52px;height:60px;
+          text-align:center;
+          font-size:24px;font-weight:700;
+          font-family:'JetBrains Mono',monospace;
+          background:rgba(245,158,11,0.05);
+          border:2px solid rgba(245,158,11,0.15);
+          border-radius:14px;
+          color:#FEF3C7;
+          outline:none;
+          transition:all 0.2s;
+          caret-color:transparent;
+        }
+        .otp-box:focus{
+          border-color:#F59E0B;
+          background:rgba(245,158,11,0.12);
+          box-shadow:0 0 0 4px rgba(245,158,11,0.15),0 0 20px rgba(245,158,11,0.1);
+          transform:translateY(-2px);
+        }
+        .otp-box:not([value=""]):not(:placeholder-shown){
+          border-color:rgba(245,158,11,0.5);
+          background:rgba(245,158,11,0.08);
+        }
+        .email-input{
+          width:100%;padding:14px 18px;
+          background:rgba(255,255,255,0.04);
+          border:2px solid rgba(255,255,255,0.08);
+          border-radius:14px;
+          color:#FEF3C7;font-size:15px;
+          font-family:'Sora',sans-serif;
+          outline:none;transition:all 0.25s;
+        }
+        .email-input:focus{
+          border-color:rgba(245,158,11,0.5);
+          background:rgba(245,158,11,0.06);
+          box-shadow:0 0 0 4px rgba(245,158,11,0.1);
+        }
+        .email-input::placeholder{color:rgba(254,243,199,0.2)}
+        .btn-main{
+          width:100%;padding:15px;
+          background:linear-gradient(135deg,#F59E0B 0%,#D97706 100%);
+          border:none;border-radius:14px;
+          color:#1A0F00;font-size:15px;font-weight:700;
+          font-family:'Sora',sans-serif;
+          cursor:pointer;transition:all 0.25s;
+          letter-spacing:0.3px;position:relative;overflow:hidden;
+        }
+        .btn-main::before{
+          content:'';position:absolute;inset:0;
+          background:linear-gradient(135deg,rgba(255,255,255,0.2),transparent);
+          opacity:0;transition:opacity 0.2s;
+        }
+        .btn-main:hover::before{opacity:1}
+        .btn-main:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(245,158,11,0.35)}
+        .btn-main:active{transform:translateY(0)}
+        .btn-main:disabled{opacity:0.5;cursor:not-allowed;transform:none;box-shadow:none}
+        .role-btn{
+          width:100%;display:flex;align-items:center;gap:14px;
+          padding:15px 18px;
+          background:rgba(255,255,255,0.03);
+          border:1.5px solid rgba(255,255,255,0.07);
+          border-radius:16px;cursor:pointer;
+          transition:all 0.25s;text-align:left;
+        }
+        .role-btn:hover{background:rgba(255,255,255,0.06);border-color:rgba(245,158,11,0.3);transform:translateX(5px)}
+        .back-link{background:none;border:none;color:rgba(254,243,199,0.35);cursor:pointer;font-family:'Sora',sans-serif;font-size:13px;display:flex;align-items:center;gap:5px;padding:0;transition:color 0.2s}
+        .back-link:hover{color:rgba(254,243,199,0.7)}
+        .resend-btn{background:none;border:none;cursor:pointer;font-family:'Sora',sans-serif;font-size:13px;font-weight:600;padding:0;transition:all 0.2s}
+        .loading-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:currentColor;animation:dotPulse 1.2s infinite ease-in-out}
+        .loading-dot:nth-child(2){animation-delay:0.2s}
+        .loading-dot:nth-child(3){animation-delay:0.4s}
+      `}</style>
+
+      <div style={{minHeight:"100vh",background:"#0A0800",display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",position:"relative",overflow:"hidden"}}>
+
+        {/* Grid BG */}
+        <div style={{position:"fixed",inset:0,backgroundImage:"linear-gradient(rgba(245,158,11,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(245,158,11,0.03) 1px,transparent 1px)",backgroundSize:"50px 50px",zIndex:0}}/>
+
+        {/* Glow */}
+        <div style={{position:"fixed",top:"-10%",left:"50%",transform:"translateX(-50%)",width:"600px",height:"300px",background:"radial-gradient(ellipse,rgba(245,158,11,0.06) 0%,transparent 70%)",zIndex:0,pointerEvents:"none"}}/>
+
+        {/* Scanline effect */}
+        <div style={{position:"fixed",inset:0,overflow:"hidden",zIndex:0,opacity:0.03,pointerEvents:"none"}}>
+          <div style={{width:"100%",height:"2px",background:"linear-gradient(transparent,rgba(245,158,11,0.8),transparent)",animation:"scanline 8s linear infinite"}}/>
+        </div>
+
+        {/* Card */}
+        <div className="fadeUp" style={{width:"100%",maxWidth:"400px",position:"relative",zIndex:1}}>
+
+          {/* Top badge */}
+          <div style={{textAlign:"center",marginBottom:"20px"}}>
+            <span style={{display:"inline-flex",alignItems:"center",gap:"6px",padding:"5px 14px",background:"rgba(245,158,11,0.1)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:"999px",fontSize:"11px",fontWeight:"600",color:"#F59E0B",letterSpacing:"2px",textTransform:"uppercase"}}>
+              🇮🇳 India Secured
+            </span>
+          </div>
+
+          <div style={{background:"linear-gradient(160deg,rgba(255,255,255,0.04) 0%,rgba(255,255,255,0.02) 100%)",backdropFilter:"blur(24px)",border:"1px solid rgba(245,158,11,0.15)",borderRadius:"24px",overflow:"hidden",boxShadow:"0 40px 80px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.04)"}}>
+
+            {/* Card top strip */}
+            <div style={{height:"3px",background:"linear-gradient(90deg,transparent,#F59E0B,#D97706,transparent)"}}/>
+
+            <div style={{padding:"32px 28px"}}>
+
+              {/* Logo */}
+              <div style={{textAlign:"center",marginBottom:"28px"}}>
+                <div style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:"68px",height:"68px",background:"radial-gradient(circle,rgba(245,158,11,0.15),rgba(245,158,11,0.05))",borderRadius:"20px",border:"1px solid rgba(245,158,11,0.25)",marginBottom:"14px"}}>
+                  <SunLogo/>
+                </div>
+                <div style={{fontSize:"10px",letterSpacing:"3px",color:"#F59E0B",fontWeight:"700",textTransform:"uppercase",marginBottom:"3px"}}>CGDigi Prime</div>
+                <div style={{fontSize:"20px",fontWeight:"800",color:"#FEF3C7",letterSpacing:"-0.5px"}}>Solar App</div>
+                <div style={{fontSize:"12px",color:"rgba(254,243,199,0.3)",marginTop:"2px"}}>Jagdalpur, Chhattisgarh</div>
+              </div>
+
+              {/* Step bar */}
+              <div style={{display:"flex",gap:"4px",marginBottom:"26px"}}>
+                {[1,2,3].map(s=>(
+                  <div key={s} style={{flex: s===step?2:1,height:"3px",borderRadius:"999px",background: s<step?"rgba(245,158,11,0.6)":s===step?"#F59E0B":"rgba(255,255,255,0.1)",transition:"all 0.4s"}}/>
+                ))}
+              </div>
+
+              {/* Alerts */}
+              {error && (
+                <div style={{padding:"10px 14px",borderRadius:"10px",background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.25)",color:"#FCA5A5",fontSize:"13px",marginBottom:"18px",display:"flex",alignItems:"flex-start",gap:"8px"}}>
+                  <span>⚠️</span><span>{error}</span>
+                </div>
+              )}
+              {info && (
+                <div style={{padding:"10px 14px",borderRadius:"10px",background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.25)",color:"#6EE7B7",fontSize:"13px",marginBottom:"18px",display:"flex",alignItems:"center",gap:"8px"}}>
+                  <span>{info}</span>
+                </div>
+              )}
+
+              {/* ── STEP 1: Role ── */}
+              {step===1&&(
+                <div className="fadeUp">
+                  <p style={{color:"rgba(254,243,199,0.4)",fontSize:"13px",textAlign:"center",marginBottom:"16px"}}>Login ke liye role choose karo</p>
+                  <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+                    {ROLES.map(r=>(
+                      <button key={r.id} className="role-btn" onClick={()=>handleRoleSelect(r.id)}>
+                        <div style={{width:"40px",height:"40px",borderRadius:"12px",background:`linear-gradient(135deg,${r.color}18,${r.color}08)`,border:`1px solid ${r.color}30`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"18px",flexShrink:0}}>{r.icon}</div>
+                        <div style={{flex:1}}>
+                          <div style={{color:"#FEF3C7",fontWeight:"700",fontSize:"14px"}}>{r.label}</div>
+                          <div style={{color:"rgba(254,243,199,0.35)",fontSize:"12px",marginTop:"1px"}}>{r.desc}</div>
+                        </div>
+                        <div style={{color:"rgba(254,243,199,0.2)",fontSize:"16px"}}>›</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── STEP 2: Email ── */}
+              {step===2&&(
+                <div className={`fadeUp ${shake?"shake":""}`}>
+                  <button className="back-link" onClick={()=>{setStep(1);setError("")}} style={{marginBottom:"18px"}}>
+                    ← Role change karo
+                  </button>
+
+                  {selectedRole&&(
+                    <div style={{display:"flex",alignItems:"center",gap:"10px",padding:"10px 14px",background:`linear-gradient(135deg,${selectedRole.color}0D,transparent)`,border:`1px solid ${selectedRole.color}25`,borderRadius:"12px",marginBottom:"20px"}}>
+                      <span style={{fontSize:"18px"}}>{selectedRole.icon}</span>
+                      <div>
+                        <span style={{color:"#FEF3C7",fontSize:"13px",fontWeight:"600"}}>{selectedRole.label}</span>
+                        <span style={{color:"rgba(254,243,199,0.4)",fontSize:"12px"}}> • Passwordless Login</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{marginBottom:"22px"}}>
+                    <label style={{display:"block",color:"rgba(254,243,199,0.5)",fontSize:"12px",fontWeight:"600",letterSpacing:"0.5px",textTransform:"uppercase",marginBottom:"8px"}}>
+                      Email Address
+                    </label>
+                    <input className="email-input" type="email" placeholder="aapka@email.com"
+                      value={email} onChange={e=>setEmail(e.target.value)}
+                      onKeyDown={e=>e.key==="Enter"&&handleSendOTP()}
+                      autoFocus/>
+                    <p style={{color:"rgba(254,243,199,0.2)",fontSize:"11px",marginTop:"7px"}}>
+                      📧 Aapke email pe 6-digit OTP bheja jayega
+                    </p>
+                  </div>
+
+                  <button className="btn-main" onClick={handleSendOTP} disabled={loading}>
+                    {loading?(
+                      <span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"6px"}}>
+                        <span className="loading-dot"/>
+                        <span className="loading-dot"/>
+                        <span className="loading-dot"/>
+                      </span>
+                    ):"OTP Bhejo →"}
+                  </button>
+                </div>
+              )}
+
+              {/* ── STEP 3: OTP ── */}
+              {step===3&&(
+                <div className={`fadeUp ${shake?"shake":""}`}>
+                  <button className="back-link" onClick={()=>{setStep(2);setError("");setOtp(["","","","","",""]);setTimer(300);setCanResend(false)}} style={{marginBottom:"18px"}}>
+                    ← Email change karo
+                  </button>
+
+                  {/* Email display */}
+                  <div style={{textAlign:"center",marginBottom:"24px"}}>
+                    <div style={{width:"52px",height:"52px",borderRadius:"50%",background:"rgba(245,158,11,0.1)",border:"1.5px solid rgba(245,158,11,0.25)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px",fontSize:"22px"}}>
+                      📨
+                    </div>
+                    <p style={{color:"rgba(254,243,199,0.45)",fontSize:"13px"}}>OTP bheja gaya</p>
+                    <p style={{color:"#F59E0B",fontWeight:"700",fontSize:"14px",marginTop:"3px",fontFamily:"'JetBrains Mono',monospace"}}>
+                      {maskEmail(email)}
+                    </p>
+                    <p style={{color:"rgba(254,243,199,0.25)",fontSize:"11px",marginTop:"4px"}}>
+                      Spam folder bhi check karo
+                    </p>
+                  </div>
+
+                  {/* OTP Boxes */}
+                  <div style={{marginBottom:"20px"}}>
+                    <label style={{display:"block",color:"rgba(254,243,199,0.5)",fontSize:"12px",fontWeight:"600",letterSpacing:"0.5px",textTransform:"uppercase",marginBottom:"12px",textAlign:"center"}}>
+                      6-Digit OTP Enter Karo
+                    </label>
+                    <div style={{display:"flex",gap:"8px",justifyContent:"center"}} onPaste={handleOtpPaste}>
+                      {otp.map((d,i)=>(
+                        <input key={i} ref={el=>otpRefs.current[i]=el}
+                          className="otp-box" type="text" inputMode="numeric"
+                          maxLength={1} value={d} placeholder="·"
+                          onChange={e=>handleOtpChange(i,e.target.value)}
+                          onKeyDown={e=>handleOtpKey(i,e)}
+                          disabled={locked||loading}/>
+                      ))}
+                    </div>
+                    <p style={{color:"rgba(254,243,199,0.2)",fontSize:"11px",textAlign:"center",marginTop:"8px"}}>
+                      💡 Copy-paste bhi kaam karta hai
+                    </p>
+                  </div>
+
+                  {/* Timer + Resend */}
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"20px",padding:"10px 14px",background:"rgba(255,255,255,0.02)",borderRadius:"10px",border:"1px solid rgba(255,255,255,0.05)"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
+                      <span style={{fontSize:"13px"}}>{timer>0?"⏱":"⌛"}</span>
+                      <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"14px",fontWeight:"600",color:timer<60?"#EF4444":timer<120?"#F59E0B":"rgba(254,243,199,0.5)"}}>
+                        {timer>0?fmt(timer):"Expired"}
+                      </span>
+                    </div>
+                    <button className="resend-btn"
+                      style={{color:canResend&&resendCount<3?"#F59E0B":"rgba(254,243,199,0.2)",cursor:canResend&&resendCount<3?"pointer":"not-allowed"}}
+                      onClick={handleResend} disabled={!canResend||resendCount>=3||loading}>
+                      {resendCount>=3?"Max limit":"OTP Resend"} {resendCount>0&&resendCount<3?`(${3-resendCount} left)`:""}
+                    </button>
+                  </div>
+
+                  <button className="btn-main" onClick={()=>handleVerifyOTP()} disabled={loading||locked||otp.join("").length<6}>
+                    {loading?(
+                      <span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"6px"}}>
+                        <span className="loading-dot"/>
+                        <span className="loading-dot"/>
+                        <span className="loading-dot"/>
+                      </span>
+                    ):"✅ Verify & Login"}
+                  </button>
+
+                  {/* Security note */}
+                  <div style={{marginTop:"16px",padding:"10px 12px",background:"rgba(255,255,255,0.02)",borderRadius:"10px",border:"1px solid rgba(255,255,255,0.04)"}}>
+                    <p style={{color:"rgba(254,243,199,0.2)",fontSize:"11px",lineHeight:"1.6"}}>
+                      🔐 OTP 5 min valid • 5 galat attempts = Account lock<br/>
+                      🇮🇳 Data 100% India mein (AWS Mumbai)
+                    </p>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </div>
+
+          {/* Footer */}
+          <p style={{textAlign:"center",color:"rgba(254,243,199,0.15)",fontSize:"11px",marginTop:"20px",letterSpacing:"0.5px"}}>
+            CGDigi Prime © 2026 • No Password Required
+          </p>
+        </div>
+      </div>
+    </>
+  );
+}
