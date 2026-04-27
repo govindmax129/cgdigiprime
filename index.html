@@ -1,497 +1,203 @@
-import { useState, useEffect, useRef } from "react";
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CGDIGI PRIME | Jagdalpur's Leading 3D Marketing Agency</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
-const ROLES = [
-  { id: "admin", label: "Admin", icon: "👑", color: "#F59E0B", desc: "Full Control Panel" },
-  { id: "employee", label: "Employee", icon: "👔", color: "#3B82F6", desc: "Lead Management" },
-  { id: "dealer", label: "Dealer", icon: "🤝", color: "#10B981", desc: "View Leads & Tracking" },
-];
-
-function SunLogo() {
-  return (
-    <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
-      <circle cx="22" cy="22" r="9" fill="#F59E0B" />
-      <circle cx="22" cy="22" r="13" fill="none" stroke="#FCD34D" strokeWidth="1" strokeDasharray="3 3" />
-      {[0,45,90,135,180,225,270,315].map((deg,i)=>(
-        <line key={i} x1={22+14*Math.cos(deg*Math.PI/180)} y1={22+14*Math.sin(deg*Math.PI/180)}
-          x2={22+18*Math.cos(deg*Math.PI/180)} y2={22+18*Math.sin(deg*Math.PI/180)}
-          stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round"/>
-      ))}
-    </svg>
-  );
-}
-
-export default function SolarOTPLogin() {
-  const [step, setStep] = useState(1);       // 1=role, 2=email, 3=otp
-  const [role, setRole] = useState(null);
-  const [email, setEmail] = useState("");
-  const [otp, setOtp] = useState(["","","","","",""]);
-  const [loading, setLoading] = useState(false);
-  const [timer, setTimer] = useState(300);
-  const [canResend, setCanResend] = useState(false);
-  const [resendCount, setResendCount] = useState(0);
-  const [error, setError] = useState("");
-  const [info, setInfo] = useState("");
-  const [attempts, setAttempts] = useState(0);
-  const [locked, setLocked] = useState(false);
-  const [shake, setShake] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
-  const otpRefs = useRef([]);
-
-  // Timer countdown
-  useEffect(() => {
-    if (step !== 3) return;
-    if (timer <= 0) { setCanResend(true); return; }
-    const t = setTimeout(() => setTimer(t => t - 1), 1000);
-    return () => clearTimeout(t);
-  }, [step, timer]);
-
-  const doShake = () => {
-    setShake(true);
-    setTimeout(() => setShake(false), 600);
-  };
-
-  const showError = (msg) => { setError(msg); setInfo(""); doShake(); };
-  const showInfo = (msg) => { setInfo(msg); setError(""); };
-
-  // Step 1 — Role select
-  const handleRoleSelect = (r) => {
-    setRole(r);
-    setError("");
-    setTimeout(() => setStep(2), 250);
-  };
-
-  // Step 2 — Email submit → send OTP
-  const handleSendOTP = async () => {
-    setError("");
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      showError("Valid email address daalo");
-      return;
-    }
-    setLoading(true);
-    try {
-      // API call: POST /api/auth/send-otp
-      const res = await fetch("/api/auth/send-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.toLowerCase(), role }),
-      });
-      const data = await res.json();
-      if (!res.ok) { showError(data.message); return; }
-      setStep(3);
-      setTimer(300);
-      setCanResend(false);
-      setEmailSent(true);
-      showInfo(`OTP bheja gaya ✅`);
-      setTimeout(() => setInfo(""), 3000);
-      setTimeout(() => otpRefs.current[0]?.focus(), 300);
-    } catch {
-      showError("Network error. Internet check karo.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // OTP input handlers
-  const handleOtpChange = (i, val) => {
-    if (!/^\d*$/.test(val)) return;
-    const n = [...otp]; n[i] = val.slice(-1); setOtp(n);
-    if (val && i < 5) otpRefs.current[i+1]?.focus();
-    // Auto submit when all 6 filled
-    if (val && i === 5) {
-      const full = [...n].join("");
-      if (full.length === 6) setTimeout(() => handleVerifyOTP([...n].join("")), 100);
-    }
-  };
-
-  const handleOtpKey = (i, e) => {
-    if (e.key === "Backspace" && !otp[i] && i > 0) {
-      otpRefs.current[i-1]?.focus();
-    }
-    if (e.key === "Enter" && otp.join("").length === 6) handleVerifyOTP(otp.join(""));
-  };
-
-  // Handle paste
-  const handleOtpPaste = (e) => {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData("text").replace(/\D/g,"").slice(0,6);
-    if (!pasted) return;
-    const n = [...otp];
-    [...pasted].forEach((c, i) => { n[i] = c; });
-    setOtp(n);
-    otpRefs.current[Math.min(pasted.length, 5)]?.focus();
-    if (pasted.length === 6) setTimeout(() => handleVerifyOTP(pasted), 100);
-  };
-
-  // Step 3 — Verify OTP
-  const handleVerifyOTP = async (otpValue) => {
-    const code = otpValue || otp.join("");
-    if (code.length < 6) { showError("6 digit OTP daalo"); return; }
-    if (locked) { showError("Account locked. Admin se contact karo."); return; }
-    setLoading(true);
-    try {
-      // API call: POST /api/auth/verify-otp
-      const res = await fetch("/api/auth/verify-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include", // cookies ke liye
-        body: JSON.stringify({ email: email.toLowerCase(), role, otp: code }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        const newAttempts = attempts + 1;
-        setAttempts(newAttempts);
-        if (newAttempts >= 5 || data.locked) {
-          setLocked(true);
-          showError("⛔ Account lock ho gaya. Admin se contact karo.");
-        } else {
-          showError(data.message || `Galat OTP. ${5-newAttempts} attempts bache.`);
-          setOtp(["","","","","",""]);
-          setTimeout(() => otpRefs.current[0]?.focus(), 100);
+    <style>
+        :root { --neon: #00f2ff; --bg: #020617; }
+        body { background: var(--bg); color: white; scroll-behavior: smooth; overflow-x: hidden; }
+        
+        /* Glassmorphism Classes */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-        return;
-      }
-      // Success — token store karo aur redirect
-      if (data.accessToken) {
-        sessionStorage.setItem("accessToken", data.accessToken);
-        sessionStorage.setItem("userRole", data.user.role);
-      }
-      showInfo("✅ Login ho gaya! Redirect ho raha hai...");
-      // Role-based redirect
-      setTimeout(() => {
-        const routes = { admin: "/admin", employee: "/employee", dealer: "/dealer" };
-        window.location.href = routes[data.user.role] || "/dashboard";
-      }, 1200);
-    } catch {
-      showError("Network error. Internet check karo.");
-    } finally {
-      setLoading(false);
-    }
-  };
+        .glass-panel:hover { border-color: var(--neon); transform: translateY(-10px) scale(1.02); }
 
-  // Resend OTP
-  const handleResend = async () => {
-    if (!canResend || resendCount >= 3) return;
-    if (resendCount >= 3) { showError("Max resend limit. Baad mein try karo."); return; }
-    setLoading(true);
-    try {
-      const res = await fetch("/api/auth/send-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.toLowerCase(), role }),
-      });
-      const data = await res.json();
-      if (!res.ok) { showError(data.message); return; }
-      setOtp(["","","","","",""]);
-      setTimer(300);
-      setCanResend(false);
-      setResendCount(c => c+1);
-      setAttempts(0);
-      showInfo("Naya OTP bheja gaya ✅");
-      setTimeout(() => setInfo(""), 3000);
-      setTimeout(() => otpRefs.current[0]?.focus(), 100);
-    } catch {
-      showError("Network error.");
-    } finally {
-      setLoading(false);
-    }
-  };
+        /* Floating Animation */
+        @keyframes float {
+            0% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(2deg); }
+            100% { transform: translateY(0px) rotate(0deg); }
+        }
+        .floating { animation: float 6s ease-in-out infinite; }
 
-  const fmt = (s) => `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
-  const selectedRole = ROLES.find(r => r.id === role);
-  const maskEmail = (e) => { const [u,d]=e.split("@"); return `${u.slice(0,2)}${"*".repeat(Math.max(u.length-2,2))}@${d}`; };
+        canvas#webgl { position: fixed; top: 0; left: 0; outline: none; z-index: -1; }
 
-  return (
-    <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
-        *{box-sizing:border-box;margin:0;padding:0}
-        body{font-family:'Sora',sans-serif}
-        @keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-10px)}40%{transform:translateX(10px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
-        @keyframes scanline{0%{transform:translateY(-100%)}100%{transform:translateY(100vh)}}
-        @keyframes glowBorder{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0)}50%{box-shadow:0 0 0 4px rgba(245,158,11,0.2)}}
-        @keyframes dotPulse{0%,80%,100%{transform:scale(0.6)}40%{transform:scale(1)}}
-        .fadeUp{animation:fadeUp 0.45s cubic-bezier(0.16,1,0.3,1) forwards}
-        .shake{animation:shake 0.5s ease}
-        .otp-box{
-          width:52px;height:60px;
-          text-align:center;
-          font-size:24px;font-weight:700;
-          font-family:'JetBrains Mono',monospace;
-          background:rgba(245,158,11,0.05);
-          border:2px solid rgba(245,158,11,0.15);
-          border-radius:14px;
-          color:#FEF3C7;
-          outline:none;
-          transition:all 0.2s;
-          caret-color:transparent;
-        }
-        .otp-box:focus{
-          border-color:#F59E0B;
-          background:rgba(245,158,11,0.12);
-          box-shadow:0 0 0 4px rgba(245,158,11,0.15),0 0 20px rgba(245,158,11,0.1);
-          transform:translateY(-2px);
-        }
-        .otp-box:not([value=""]):not(:placeholder-shown){
-          border-color:rgba(245,158,11,0.5);
-          background:rgba(245,158,11,0.08);
-        }
-        .email-input{
-          width:100%;padding:14px 18px;
-          background:rgba(255,255,255,0.04);
-          border:2px solid rgba(255,255,255,0.08);
-          border-radius:14px;
-          color:#FEF3C7;font-size:15px;
-          font-family:'Sora',sans-serif;
-          outline:none;transition:all 0.25s;
-        }
-        .email-input:focus{
-          border-color:rgba(245,158,11,0.5);
-          background:rgba(245,158,11,0.06);
-          box-shadow:0 0 0 4px rgba(245,158,11,0.1);
-        }
-        .email-input::placeholder{color:rgba(254,243,199,0.2)}
-        .btn-main{
-          width:100%;padding:15px;
-          background:linear-gradient(135deg,#F59E0B 0%,#D97706 100%);
-          border:none;border-radius:14px;
-          color:#1A0F00;font-size:15px;font-weight:700;
-          font-family:'Sora',sans-serif;
-          cursor:pointer;transition:all 0.25s;
-          letter-spacing:0.3px;position:relative;overflow:hidden;
-        }
-        .btn-main::before{
-          content:'';position:absolute;inset:0;
-          background:linear-gradient(135deg,rgba(255,255,255,0.2),transparent);
-          opacity:0;transition:opacity 0.2s;
-        }
-        .btn-main:hover::before{opacity:1}
-        .btn-main:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(245,158,11,0.35)}
-        .btn-main:active{transform:translateY(0)}
-        .btn-main:disabled{opacity:0.5;cursor:not-allowed;transform:none;box-shadow:none}
-        .role-btn{
-          width:100%;display:flex;align-items:center;gap:14px;
-          padding:15px 18px;
-          background:rgba(255,255,255,0.03);
-          border:1.5px solid rgba(255,255,255,0.07);
-          border-radius:16px;cursor:pointer;
-          transition:all 0.25s;text-align:left;
-        }
-        .role-btn:hover{background:rgba(255,255,255,0.06);border-color:rgba(245,158,11,0.3);transform:translateX(5px)}
-        .back-link{background:none;border:none;color:rgba(254,243,199,0.35);cursor:pointer;font-family:'Sora',sans-serif;font-size:13px;display:flex;align-items:center;gap:5px;padding:0;transition:color 0.2s}
-        .back-link:hover{color:rgba(254,243,199,0.7)}
-        .resend-btn{background:none;border:none;cursor:pointer;font-family:'Sora',sans-serif;font-size:13px;font-weight:600;padding:0;transition:all 0.2s}
-        .loading-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:currentColor;animation:dotPulse 1.2s infinite ease-in-out}
-        .loading-dot:nth-child(2){animation-delay:0.2s}
-        .loading-dot:nth-child(3){animation-delay:0.4s}
-      `}</style>
+        .neon-border { box-shadow: 0 0 15px rgba(0, 242, 255, 0.3); border: 1px solid var(--neon); }
+        .hero-text { font-size: clamp(3rem, 10vw, 8rem); font-weight: 900; line-height: 0.9; }
 
-      <div style={{minHeight:"100vh",background:"#0A0800",display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",position:"relative",overflow:"hidden"}}>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #010409; }
+        ::-webkit-scrollbar-thumb { background: var(--neon); border-radius: 10px; }
+    </style>
+</head>
+<body>
 
-        {/* Grid BG */}
-        <div style={{position:"fixed",inset:0,backgroundImage:"linear-gradient(rgba(245,158,11,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(245,158,11,0.03) 1px,transparent 1px)",backgroundSize:"50px 50px",zIndex:0}}/>
+    <canvas id="webgl"></canvas>
 
-        {/* Glow */}
-        <div style={{position:"fixed",top:"-10%",left:"50%",transform:"translateX(-50%)",width:"600px",height:"300px",background:"radial-gradient(ellipse,rgba(245,158,11,0.06) 0%,transparent 70%)",zIndex:0,pointerEvents:"none"}}/>
-
-        {/* Scanline effect */}
-        <div style={{position:"fixed",inset:0,overflow:"hidden",zIndex:0,opacity:0.03,pointerEvents:"none"}}>
-          <div style={{width:"100%",height:"2px",background:"linear-gradient(transparent,rgba(245,158,11,0.8),transparent)",animation:"scanline 8s linear infinite"}}/>
+    <nav class="fixed w-full z-[100] p-6 flex justify-between items-center glass-panel m-4 rounded-full max-w-[95%] left-1/2 -translate-x-1/2">
+        <div class="flex items-center gap-2">
+            <div class="w-10 h-10 bg-cyan-500 rounded-lg flex items-center justify-center font-bold text-black">CP</div>
+            <span class="text-xl font-black tracking-widest">CGDIGI PRIME</span>
         </div>
+        <div class="hidden md:flex gap-8 text-sm font-medium uppercase tracking-widest">
+            <a href="#services" class="hover:text-cyan-400">Services</a>
+            <a href="#solar" class="hover:text-cyan-400">Solar Hub</a>
+            <a href="#realestate" class="hover:text-cyan-400">Real Estate</a>
+            <a href="#contact" class="hover:text-cyan-400">Contact</a>
+        </div>
+        <button class="bg-cyan-500 text-black px-6 py-2 rounded-full font-bold hover:bg-white transition">Get Started</button>
+    </nav>
 
-        {/* Card */}
-        <div className="fadeUp" style={{width:"100%",maxWidth:"400px",position:"relative",zIndex:1}}>
+    <section class="h-screen flex flex-col items-center justify-center relative px-6">
+        <div class="text-center z-10">
+            <h1 class="hero-text opacity-0" id="title">FUTURE<br><span class="text-cyan-500">DIGITAL</span></h1>
+            <p class="mt-6 text-gray-400 max-w-xl mx-auto text-lg antigravity opacity-0">Jagdalpur's first AI-driven marketing agency. We don't just generate leads; we build business ecosystems.</p>
+        </div>
+        <div class="absolute bottom-10 animate-bounce text-cyan-500"><i class="fa-solid fa-chevron-down text-2xl"></i></div>
+    </section>
 
-          {/* Top badge */}
-          <div style={{textAlign:"center",marginBottom:"20px"}}>
-            <span style={{display:"inline-flex",alignItems:"center",gap:"6px",padding:"5px 14px",background:"rgba(245,158,11,0.1)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:"999px",fontSize:"11px",fontWeight:"600",color:"#F59E0B",letterSpacing:"2px",textTransform:"uppercase"}}>
-              🇮🇳 India Secured
-            </span>
-          </div>
-
-          <div style={{background:"linear-gradient(160deg,rgba(255,255,255,0.04) 0%,rgba(255,255,255,0.02) 100%)",backdropFilter:"blur(24px)",border:"1px solid rgba(245,158,11,0.15)",borderRadius:"24px",overflow:"hidden",boxShadow:"0 40px 80px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.04)"}}>
-
-            {/* Card top strip */}
-            <div style={{height:"3px",background:"linear-gradient(90deg,transparent,#F59E0B,#D97706,transparent)"}}/>
-
-            <div style={{padding:"32px 28px"}}>
-
-              {/* Logo */}
-              <div style={{textAlign:"center",marginBottom:"28px"}}>
-                <div style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:"68px",height:"68px",background:"radial-gradient(circle,rgba(245,158,11,0.15),rgba(245,158,11,0.05))",borderRadius:"20px",border:"1px solid rgba(245,158,11,0.25)",marginBottom:"14px"}}>
-                  <SunLogo/>
-                </div>
-                <div style={{fontSize:"10px",letterSpacing:"3px",color:"#F59E0B",fontWeight:"700",textTransform:"uppercase",marginBottom:"3px"}}>CGDigi Prime</div>
-                <div style={{fontSize:"20px",fontWeight:"800",color:"#FEF3C7",letterSpacing:"-0.5px"}}>Solar App</div>
-                <div style={{fontSize:"12px",color:"rgba(254,243,199,0.3)",marginTop:"2px"}}>Jagdalpur, Chhattisgarh</div>
-              </div>
-
-              {/* Step bar */}
-              <div style={{display:"flex",gap:"4px",marginBottom:"26px"}}>
-                {[1,2,3].map(s=>(
-                  <div key={s} style={{flex: s===step?2:1,height:"3px",borderRadius:"999px",background: s<step?"rgba(245,158,11,0.6)":s===step?"#F59E0B":"rgba(255,255,255,0.1)",transition:"all 0.4s"}}/>
-                ))}
-              </div>
-
-              {/* Alerts */}
-              {error && (
-                <div style={{padding:"10px 14px",borderRadius:"10px",background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.25)",color:"#FCA5A5",fontSize:"13px",marginBottom:"18px",display:"flex",alignItems:"flex-start",gap:"8px"}}>
-                  <span>⚠️</span><span>{error}</span>
-                </div>
-              )}
-              {info && (
-                <div style={{padding:"10px 14px",borderRadius:"10px",background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.25)",color:"#6EE7B7",fontSize:"13px",marginBottom:"18px",display:"flex",alignItems:"center",gap:"8px"}}>
-                  <span>{info}</span>
-                </div>
-              )}
-
-              {/* ── STEP 1: Role ── */}
-              {step===1&&(
-                <div className="fadeUp">
-                  <p style={{color:"rgba(254,243,199,0.4)",fontSize:"13px",textAlign:"center",marginBottom:"16px"}}>Login ke liye role choose karo</p>
-                  <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
-                    {ROLES.map(r=>(
-                      <button key={r.id} className="role-btn" onClick={()=>handleRoleSelect(r.id)}>
-                        <div style={{width:"40px",height:"40px",borderRadius:"12px",background:`linear-gradient(135deg,${r.color}18,${r.color}08)`,border:`1px solid ${r.color}30`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"18px",flexShrink:0}}>{r.icon}</div>
-                        <div style={{flex:1}}>
-                          <div style={{color:"#FEF3C7",fontWeight:"700",fontSize:"14px"}}>{r.label}</div>
-                          <div style={{color:"rgba(254,243,199,0.35)",fontSize:"12px",marginTop:"1px"}}>{r.desc}</div>
-                        </div>
-                        <div style={{color:"rgba(254,243,199,0.2)",fontSize:"16px"}}>›</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* ── STEP 2: Email ── */}
-              {step===2&&(
-                <div className={`fadeUp ${shake?"shake":""}`}>
-                  <button className="back-link" onClick={()=>{setStep(1);setError("")}} style={{marginBottom:"18px"}}>
-                    ← Role change karo
-                  </button>
-
-                  {selectedRole&&(
-                    <div style={{display:"flex",alignItems:"center",gap:"10px",padding:"10px 14px",background:`linear-gradient(135deg,${selectedRole.color}0D,transparent)`,border:`1px solid ${selectedRole.color}25`,borderRadius:"12px",marginBottom:"20px"}}>
-                      <span style={{fontSize:"18px"}}>{selectedRole.icon}</span>
-                      <div>
-                        <span style={{color:"#FEF3C7",fontSize:"13px",fontWeight:"600"}}>{selectedRole.label}</span>
-                        <span style={{color:"rgba(254,243,199,0.4)",fontSize:"12px"}}> • Passwordless Login</span>
-                      </div>
-                    </div>
-                  )}
-
-                  <div style={{marginBottom:"22px"}}>
-                    <label style={{display:"block",color:"rgba(254,243,199,0.5)",fontSize:"12px",fontWeight:"600",letterSpacing:"0.5px",textTransform:"uppercase",marginBottom:"8px"}}>
-                      Email Address
-                    </label>
-                    <input className="email-input" type="email" placeholder="aapka@email.com"
-                      value={email} onChange={e=>setEmail(e.target.value)}
-                      onKeyDown={e=>e.key==="Enter"&&handleSendOTP()}
-                      autoFocus/>
-                    <p style={{color:"rgba(254,243,199,0.2)",fontSize:"11px",marginTop:"7px"}}>
-                      📧 Aapke email pe 6-digit OTP bheja jayega
-                    </p>
-                  </div>
-
-                  <button className="btn-main" onClick={handleSendOTP} disabled={loading}>
-                    {loading?(
-                      <span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"6px"}}>
-                        <span className="loading-dot"/>
-                        <span className="loading-dot"/>
-                        <span className="loading-dot"/>
-                      </span>
-                    ):"OTP Bhejo →"}
-                  </button>
-                </div>
-              )}
-
-              {/* ── STEP 3: OTP ── */}
-              {step===3&&(
-                <div className={`fadeUp ${shake?"shake":""}`}>
-                  <button className="back-link" onClick={()=>{setStep(2);setError("");setOtp(["","","","","",""]);setTimer(300);setCanResend(false)}} style={{marginBottom:"18px"}}>
-                    ← Email change karo
-                  </button>
-
-                  {/* Email display */}
-                  <div style={{textAlign:"center",marginBottom:"24px"}}>
-                    <div style={{width:"52px",height:"52px",borderRadius:"50%",background:"rgba(245,158,11,0.1)",border:"1.5px solid rgba(245,158,11,0.25)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px",fontSize:"22px"}}>
-                      📨
-                    </div>
-                    <p style={{color:"rgba(254,243,199,0.45)",fontSize:"13px"}}>OTP bheja gaya</p>
-                    <p style={{color:"#F59E0B",fontWeight:"700",fontSize:"14px",marginTop:"3px",fontFamily:"'JetBrains Mono',monospace"}}>
-                      {maskEmail(email)}
-                    </p>
-                    <p style={{color:"rgba(254,243,199,0.25)",fontSize:"11px",marginTop:"4px"}}>
-                      Spam folder bhi check karo
-                    </p>
-                  </div>
-
-                  {/* OTP Boxes */}
-                  <div style={{marginBottom:"20px"}}>
-                    <label style={{display:"block",color:"rgba(254,243,199,0.5)",fontSize:"12px",fontWeight:"600",letterSpacing:"0.5px",textTransform:"uppercase",marginBottom:"12px",textAlign:"center"}}>
-                      6-Digit OTP Enter Karo
-                    </label>
-                    <div style={{display:"flex",gap:"8px",justifyContent:"center"}} onPaste={handleOtpPaste}>
-                      {otp.map((d,i)=>(
-                        <input key={i} ref={el=>otpRefs.current[i]=el}
-                          className="otp-box" type="text" inputMode="numeric"
-                          maxLength={1} value={d} placeholder="·"
-                          onChange={e=>handleOtpChange(i,e.target.value)}
-                          onKeyDown={e=>handleOtpKey(i,e)}
-                          disabled={locked||loading}/>
-                      ))}
-                    </div>
-                    <p style={{color:"rgba(254,243,199,0.2)",fontSize:"11px",textAlign:"center",marginTop:"8px"}}>
-                      💡 Copy-paste bhi kaam karta hai
-                    </p>
-                  </div>
-
-                  {/* Timer + Resend */}
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"20px",padding:"10px 14px",background:"rgba(255,255,255,0.02)",borderRadius:"10px",border:"1px solid rgba(255,255,255,0.05)"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
-                      <span style={{fontSize:"13px"}}>{timer>0?"⏱":"⌛"}</span>
-                      <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"14px",fontWeight:"600",color:timer<60?"#EF4444":timer<120?"#F59E0B":"rgba(254,243,199,0.5)"}}>
-                        {timer>0?fmt(timer):"Expired"}
-                      </span>
-                    </div>
-                    <button className="resend-btn"
-                      style={{color:canResend&&resendCount<3?"#F59E0B":"rgba(254,243,199,0.2)",cursor:canResend&&resendCount<3?"pointer":"not-allowed"}}
-                      onClick={handleResend} disabled={!canResend||resendCount>=3||loading}>
-                      {resendCount>=3?"Max limit":"OTP Resend"} {resendCount>0&&resendCount<3?`(${3-resendCount} left)`:""}
-                    </button>
-                  </div>
-
-                  <button className="btn-main" onClick={()=>handleVerifyOTP()} disabled={loading||locked||otp.join("").length<6}>
-                    {loading?(
-                      <span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"6px"}}>
-                        <span className="loading-dot"/>
-                        <span className="loading-dot"/>
-                        <span className="loading-dot"/>
-                      </span>
-                    ):"✅ Verify & Login"}
-                  </button>
-
-                  {/* Security note */}
-                  <div style={{marginTop:"16px",padding:"10px 12px",background:"rgba(255,255,255,0.02)",borderRadius:"10px",border:"1px solid rgba(255,255,255,0.04)"}}>
-                    <p style={{color:"rgba(254,243,199,0.2)",fontSize:"11px",lineHeight:"1.6"}}>
-                      🔐 OTP 5 min valid • 5 galat attempts = Account lock<br/>
-                      🇮🇳 Data 100% India mein (AWS Mumbai)
-                    </p>
-                  </div>
-                </div>
-              )}
-
+    <section id="services" class="py-32 px-10 relative">
+        <h2 class="text-4xl font-bold mb-20 text-center uppercase tracking-widest">Digital <span class="text-cyan-500">Powerhouse</span></h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div class="glass-panel p-10 rounded-3xl service-card">
+                <i class="fa-brands fa-whatsapp text-5xl text-green-500 mb-6"></i>
+                <h3 class="text-2xl font-bold mb-4">WhatsApp Automation</h3>
+                <p class="text-gray-400">Advanced marketing with auto-detect language chatbots and bulk processing.</p>
             </div>
-          </div>
-
-          {/* Footer */}
-          <p style={{textAlign:"center",color:"rgba(254,243,199,0.15)",fontSize:"11px",marginTop:"20px",letterSpacing:"0.5px"}}>
-            CGDigi Prime © 2026 • No Password Required
-          </p>
+            <div class="glass-panel p-10 rounded-3xl service-card">
+                <i class="fa-brands fa-meta text-5xl text-blue-500 mb-6"></i>
+                <h3 class="text-2xl font-bold mb-4">Meta Ads Mastery</h3>
+                <p class="text-gray-400">Precision targeting for Bastar & Chhattisgarh area to get high-intent leads.</p>
+            </div>
+            <div class="glass-panel p-10 rounded-3xl service-card">
+                <i class="fa-solid fa-robot text-5xl text-purple-500 mb-6"></i>
+                <h3 class="text-2xl font-bold mb-4">Custom AI Bots</h3>
+                <p class="text-gray-400">Training custom models for your specific industry like Solar and Real Estate.</p>
+            </div>
         </div>
-      </div>
-    </>
-  );
-}
+    </section>
+
+    <section id="solar" class="py-32 bg-black/50 px-10">
+        <div class="max-w-6xl mx-auto grid md:grid-cols-2 gap-20 items-center">
+            <div>
+                <h2 class="text-5xl font-black mb-6">SOLAR <span class="text-yellow-500">EXPERT</span> AI</h2>
+                <p class="text-gray-400 mb-8 text-lg">We have deep expertise in managing digital growth for top brands. Our AI knows everything about Tata, Adani, and Waaree Solar systems.</p>
+                <div class="space-y-4">
+                    <div class="flex items-center gap-4 glass-panel p-4 rounded-xl"><i class="fa-solid fa-check text-cyan-500"></i> Tata Solar Lead Pipeline</div>
+                    <div class="flex items-center gap-4 glass-panel p-4 rounded-xl"><i class="fa-solid fa-check text-cyan-500"></i> Adani Solar Pricing Automation</div>
+                    <div class="flex items-center gap-4 glass-panel p-4 rounded-xl"><i class="fa-solid fa-check text-cyan-500"></i> Waaree Subsidy Calculator Bot</div>
+                </div>
+            </div>
+            <div class="glass-panel p-2 rounded-3xl overflow-hidden shadow-2xl shadow-cyan-500/20">
+                <img src="https://images.unsplash.com/photo-1508514177221-18d1427b5a42?auto=format&fit=crop&q=80&w=1000" class="rounded-2xl opacity-80 hover:scale-110 transition duration-700" alt="Solar">
+            </div>
+        </div>
+    </section>
+
+    <div id="ai-bot" class="fixed bottom-10 right-10 z-[200]">
+        <div id="chat-window" class="hidden flex-col w-[380px] h-[550px] glass-panel rounded-3xl overflow-hidden mb-6 neon-border">
+            <div class="bg-cyan-600 p-6 flex justify-between items-center">
+                <div>
+                    <h4 class="font-bold">CGDIGI AI Support</h4>
+                    <span class="text-xs opacity-75 text-white">Online | Auto-Language Detect</span>
+                </div>
+                <button onclick="toggleChat()" class="text-2xl">&times;</button>
+            </div>
+            <div id="chat-messages" class="flex-1 p-6 overflow-y-auto space-y-4 text-sm bg-black/40">
+                <div class="bg-white/10 p-3 rounded-2xl rounded-tl-none max-w-[80%]">नमस्ते! मैं CGDIGI PRIME का AI असिस्टेंट हूँ। आप Solar, Real Estate या Ads में से किसके बारे में जानना चाहते हैं?</div>
+            </div>
+            <div class="p-4 border-t border-white/10 flex gap-2">
+                <input type="text" id="chat-input" placeholder="Type message..." class="bg-white/5 border-none outline-none flex-1 p-3 rounded-full text-sm">
+                <button onclick="sendMessage()" class="bg-cyan-500 p-3 rounded-full text-black"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+        <button onclick="toggleChat()" class="w-16 h-16 bg-cyan-500 rounded-full flex items-center justify-center text-black shadow-xl shadow-cyan-500/50 hover:scale-110 transition active:scale-95">
+            <i class="fa-solid fa-robot text-2xl"></i>
+        </button>
+    </div>
+
+    <footer class="py-20 text-center border-t border-white/10">
+        <p class="text-gray-500">© 2026 CGDIGI PRIME - Jagdalpur, Bastar. Developed for Govind Kulu.</p>
+        <p class="text-xs text-cyan-800 mt-2">Connect: govindmax129@zohomail.in</p>
+    </footer>
+
+    <script>
+        // --- 1. Advanced 3D Scene (Three.js) ---
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas: document.querySelector('#webgl'), antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        // Starfield
+        const starGeometry = new THREE.BufferGeometry();
+        const starMaterial = new THREE.PointsMaterial({ color: 0xffffff });
+        const starVertices = [];
+        for (let i = 0; i < 10000; i++) {
+            starVertices.push((Math.random() - 0.5) * 2000, (Math.random() - 0.5) * 2000, (Math.random() - 0.5) * 2000);
+        }
+        starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+        const stars = new THREE.Points(starGeometry, starMaterial);
+        scene.add(stars);
+
+        camera.position.z = 5;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            stars.rotation.y += 0.0005;
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // --- 2. Scroll Animations (GSAP) ---
+        gsap.to("#title", { opacity: 1, duration: 2, y: -20, ease: "power4.out" });
+        gsap.to(".antigravity", { opacity: 1, duration: 1.5, delay: 0.5 });
+
+        // --- 3. Expert AI Chatbot Logic ---
+        function toggleChat() {
+            const chat = document.getElementById('chat-window');
+            chat.classList.toggle('hidden');
+            chat.classList.toggle('flex');
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const messages = document.getElementById('chat-messages');
+            const userMsg = input.value.trim().toLowerCase();
+
+            if (!userMsg) return;
+
+            // User Bubble
+            messages.innerHTML += `<div class="bg-cyan-500/20 p-3 rounded-2xl rounded-tr-none max-w-[80%] ml-auto text-right">${input.value}</div>`;
+            
+            // Bot Logic
+            let botReply = "हम आपकी लीड रिपोर्ट तैयार कर रहे हैं। क्या हम आपसे govindmax129@zohomail.in के ज़रिये संपर्क करें?";
+            
+            if(userMsg.includes("solar") || userMsg.includes("tata") || userMsg.includes("adani")) {
+                botReply = "<b>Solar Expert:</b> Tata, Adani और Waaree के सोलर पैनल के लिए हम बेस्ट Facebook Leads ला सकते हैं। क्या आप छत्तीसगढ़ सब्सिडी रेट्स जानना चाहते हैं?";
+            } else if (userMsg.includes("real estate") || userMsg.includes("plot")) {
+                botReply = "<b>Real Estate Expert:</b> जगदलपुर और बस्तर के प्राइम लोकेशंस के लिए हमारे पास डेटाबेस तैयार है।";
+            }
+
+            setTimeout(() => {
+                messages.innerHTML += `<div class="bg-white/10 p-3 rounded-2xl rounded-tl-none max-w-[80%]"><b>Bot:</b> ${botReply}</div>`;
+                messages.scrollTop = messages.scrollHeight;
+            }, 800);
+
+            input.value = "";
+        }
+    </script>
+</body>
+</html>
